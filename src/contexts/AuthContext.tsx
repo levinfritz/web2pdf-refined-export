@@ -1,6 +1,7 @@
 
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 export type User = {
   id: string;
@@ -33,35 +34,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // This is a mock implementation for the front-end only
-  // In a real app, this would connect to a backend authentication service
   useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem("web2pdf_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session) {
+          const userData: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            displayName: session.user.user_metadata?.name || session.user.email?.split('@')[0] || '',
+            photoURL: session.user.user_metadata?.avatar_url,
+          };
+          setUser(userData);
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      }
+    );
+
+    // Check current session on load
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        const userData: User = {
+          id: data.session.user.id,
+          email: data.session.user.email || '',
+          displayName: data.session.user.user_metadata?.name || data.session.user.email?.split('@')[0] || '',
+          photoURL: data.session.user.user_metadata?.avatar_url,
+        };
+        setUser(userData);
+      }
+      setIsLoading(false);
+    };
+    
+    checkUser();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Mock login - in real app would call API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
-      // Mock user
-      const mockUser = {
-        id: "user_" + Math.random().toString(36).substr(2, 9),
-        email: email,
-        displayName: email.split('@')[0],
-      };
+      if (error) throw error;
       
-      localStorage.setItem("web2pdf_user", JSON.stringify(mockUser));
-      setUser(mockUser);
-      toast.success("Login successful!");
-    } catch (error) {
-      toast.error("Login failed. Please check your credentials.");
+      toast.success("Login erfolgreich!");
+      return data;
+    } catch (error: any) {
+      toast.error(`Login fehlgeschlagen: ${error.message}`);
       throw error;
     } finally {
       setIsLoading(false);
@@ -71,68 +98,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     setIsLoading(true);
     try {
-      // Mock Google login
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
       
-      const mockUser = {
-        id: "google_" + Math.random().toString(36).substr(2, 9),
-        email: "user@example.com",
-        displayName: "Google User",
-        photoURL: "https://ui-avatars.com/api/?name=Google+User&background=0D8ABC&color=fff",
-      };
+      if (error) throw error;
       
-      localStorage.setItem("web2pdf_user", JSON.stringify(mockUser));
-      setUser(mockUser);
-      toast.success("Google login successful!");
-    } catch (error) {
-      toast.error("Google login failed.");
-      throw error;
-    } finally {
+      // No toast here as we're redirecting to Google
+    } catch (error: any) {
+      toast.error(`Google Login fehlgeschlagen: ${error.message}`);
       setIsLoading(false);
+      throw error;
     }
   };
 
   const loginWithGitHub = async () => {
     setIsLoading(true);
     try {
-      // Mock GitHub login
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
       
-      const mockUser = {
-        id: "github_" + Math.random().toString(36).substr(2, 9),
-        email: "github@example.com",
-        displayName: "GitHub User",
-        photoURL: "https://ui-avatars.com/api/?name=GitHub+User&background=333&color=fff",
-      };
+      if (error) throw error;
       
-      localStorage.setItem("web2pdf_user", JSON.stringify(mockUser));
-      setUser(mockUser);
-      toast.success("GitHub login successful!");
-    } catch (error) {
-      toast.error("GitHub login failed.");
-      throw error;
-    } finally {
+      // No toast here as we're redirecting to GitHub
+    } catch (error: any) {
+      toast.error(`GitHub Login fehlgeschlagen: ${error.message}`);
       setIsLoading(false);
+      throw error;
     }
   };
 
   const signup = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Mock signup
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
       
-      const mockUser = {
-        id: "user_" + Math.random().toString(36).substr(2, 9),
-        email: email,
-        displayName: email.split('@')[0],
-      };
+      if (error) throw error;
       
-      localStorage.setItem("web2pdf_user", JSON.stringify(mockUser));
-      setUser(mockUser);
-      toast.success("Account created successfully!");
-    } catch (error) {
-      toast.error("Signup failed. Please try again.");
+      if (data.user && data.user.identities?.length === 0) {
+        toast.error("Diese E-Mail-Adresse wird bereits verwendet.");
+      } else {
+        toast.success("Account erfolgreich erstellt! Bitte überprüfe deine E-Mails für die Bestätigung.");
+      }
+      
+      return data;
+    } catch (error: any) {
+      toast.error(`Registrierung fehlgeschlagen: ${error.message}`);
       throw error;
     } finally {
       setIsLoading(false);
@@ -142,13 +163,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setIsLoading(true);
     try {
-      // Mock logout
-      await new Promise(resolve => setTimeout(resolve, 500));
-      localStorage.removeItem("web2pdf_user");
-      setUser(null);
-      toast.success("Logged out successfully!");
-    } catch (error) {
-      toast.error("Logout failed.");
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) throw error;
+      
+      toast.success("Erfolgreich abgemeldet!");
+    } catch (error: any) {
+      toast.error(`Abmeldung fehlgeschlagen: ${error.message}`);
       throw error;
     } finally {
       setIsLoading(false);
