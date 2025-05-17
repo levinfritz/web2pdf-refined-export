@@ -1,22 +1,72 @@
-
+import { supabase } from "@/lib/supabase";
 import { PdfSettingsType, ConversionResponse } from "@/types/pdf-types";
+
+const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 'http://localhost:3000';
 
 // This is a mock service that simulates the PDF generation
 // In a real application, this would connect to a backend service
-export async function convertUrlToPdf(url: string, settings: PdfSettingsType): Promise<ConversionResponse> {
-  // Simulate API call with a delay
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // In a real application, this would return actual PDF data
-      // For this demo, we'll just simulate success
-      resolve({
-        status: "success",
-        message: "PDF generated successfully",
-        url: `https://pdf.example.com/${encodeURIComponent(url)}`,
-        previewUrl: `https://drive.google.com/viewerng/viewer?embedded=true&url=${encodeURIComponent(url)}`,
-      });
-    }, 2000); // Simulate 2 second processing time
-  });
+export const convertUrlToPdf = async (
+  url: string,
+  settings: PdfSettingsType,
+  userId?: string
+): Promise<ConversionResponse> => {
+  try {
+    // Sende Anfrage an den Backend-Service
+    const response = await fetch(`${API_ENDPOINT}/api/convert`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        settings,
+        userId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('PDF conversion failed');
+    }
+
+    const data = await response.json();
+    
+    // Wenn ein Benutzer eingeloggt ist, speichere den Eintrag in der Historie
+    if (userId) {
+      try {
+        await supabase.from('pdf_history').insert({
+          user_id: userId,
+          url: url,
+          title: await fetchPageTitle(url),
+          pdf_url: data.pdfUrl,
+        });
+      } catch (error) {
+        console.error('Error saving to history:', error);
+        // Wir werfen den Fehler hier nicht, da die Konvertierung trotzdem erfolgreich war
+      }
+    }
+    
+    return {
+      success: true,
+      pdfUrl: data.pdfUrl,
+      previewUrl: data.previewUrl || data.pdfUrl,
+    };
+  } catch (error) {
+    console.error('Error converting PDF:', error);
+    throw new Error('Failed to convert webpage to PDF');
+  }
+};
+
+// Hilfsfunktion zum Abrufen des Seitentitels
+async function fetchPageTitle(url: string): Promise<string> {
+  try {
+    const response = await fetch(url);
+    const html = await response.text();
+    const match = html.match(/<title>(.*?)<\/title>/i);
+    return match ? match[1] : url;
+  } catch (error) {
+    console.error('Error fetching page title:', error);
+    return url;
+  }
 }
 
 // In a real implementation, you would define the required API endpoints:

@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { PdfSettingsType, PaperSizeType, MarginsType, ThemeType, StylePresetType } from "@/types/pdf-types";
 
 interface PdfSettingsProps {
@@ -28,10 +28,11 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
   return (
     <div className="w-full">
       <Tabs defaultValue="layout" className="w-full">
-        <TabsList className="grid grid-cols-3 mb-4">
+        <TabsList className="grid grid-cols-4 mb-4">
           <TabsTrigger value="layout">Layout</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="style">Style</TabsTrigger>
+          <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
         
         <TabsContent value="layout" className="space-y-4">
@@ -121,6 +122,40 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
               disabled={disabled}
             />
           </div>
+          
+          <div className="flex items-center justify-between">
+            <Label htmlFor="include-subpages">Include Subpages</Label>
+            <Switch
+              id="include-subpages"
+              checked={settings.includeSubpages}
+              onCheckedChange={(checked) => onSettingsChange({ includeSubpages: checked })}
+              disabled={disabled}
+            />
+          </div>
+          
+          {settings.includeSubpages && (
+            <div className="space-y-2 pl-4 border-l-2 border-muted">
+              <Label htmlFor="max-subpages">Max. Subpages</Label>
+              <div className="flex items-center gap-2">
+                <Slider
+                  id="max-subpages"
+                  value={[settings.maxSubpages]}
+                  min={1}
+                  max={30}
+                  step={1}
+                  onValueChange={([value]) => onSettingsChange({ maxSubpages: value })}
+                  disabled={disabled}
+                  className="flex-1"
+                />
+                <div className="w-12 text-center">
+                  {settings.maxSubpages}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Die Anzahl der Unterseiten, die in die PDF aufgenommen werden sollen.
+              </p>
+            </div>
+          )}
         </TabsContent>
         
         <TabsContent value="style" className="space-y-4">
@@ -182,6 +217,28 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
                 <SelectItem value="academic">Academic</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="advanced" className="space-y-4">
+          <div className="space-y-1">
+            <Label htmlFor="advanced-info">Erweiterte Einstellungen</Label>
+            <p className="text-sm text-muted-foreground">
+              Diese Einstellungen sind für fortgeschrittene Benutzer.
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="custom-css">CSS-Anpassungen</Label>
+            <textarea 
+              id="custom-css"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
+              placeholder="body { font-family: Arial; }"
+              disabled={disabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              Benutzerdefinierte CSS-Regeln, die auf die Seite angewendet werden.
+            </p>
           </div>
         </TabsContent>
       </Tabs>

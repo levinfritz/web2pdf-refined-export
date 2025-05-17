@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +21,11 @@ const AuthDialog: React.FC<AuthDialogProps> = ({
   defaultView = "login",
 }) => {
   const [view, setView] = useState<"login" | "signup">(defaultView);
+
+  // Reset view when defaultView changes
+  useEffect(() => {
+    setView(defaultView);
+  }, [defaultView]);
 
   const toggleView = () => {
     setView(view === "login" ? "signup" : "login");

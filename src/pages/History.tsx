@@ -1,162 +1,351 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { History as HistoryIcon, Download, ExternalLink } from "lucide-react";
+import { 
+  History as HistoryIcon, 
+  Download, 
+  ExternalLink, 
+  Loader2, 
+  Trash2, 
+  AlertTriangle,
+  RefreshCw 
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
-// Mock history data for demonstration
-const mockHistoryItems = [
-  {
-    id: "pdf-1",
-    url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
-    title: "JavaScript | MDN",
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    pdfUrl: "#",
-  },
-  {
-    id: "pdf-2",
-    url: "https://reactjs.org",
-    title: "React – A JavaScript library for building user interfaces",
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    pdfUrl: "#",
-  },
-  {
-    id: "pdf-3",
-    url: "https://tailwindcss.com/docs",
-    title: "Tailwind CSS Documentation",
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    pdfUrl: "#",
-  },
-];
+interface HistoryItem {
+  id: string;
+  url: string;
+  title: string;
+  created_at: string;
+  pdf_url: string;
+  user_id: string;
+}
 
-const History: React.FC = () => {
-  const { user } = useAuth();
+const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 'http://localhost:3000';
+
+const History = () => {
   const navigate = useNavigate();
-  const [historyItems] = useState(mockHistoryItems);
+  const { user } = useAuth();
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
+  const fetchHistory = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('pdf_history')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setHistoryItems(data || []);
+    } catch (error) {
+      console.error('Error fetching history:', error);
+      toast.error('Fehler beim Laden des Verlaufs');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  useEffect(() => {
+    if (user) {
+      fetchHistory();
+    }
+  }, [user]);
 
   const handleRegenerate = (url: string) => {
     navigate(`/?url=${encodeURIComponent(url)}`);
   };
 
-  const handleDownload = (pdfUrl: string) => {
-    // In a real app, this would trigger a download
-    toast.success("Download started");
-    // Simulate download
-    window.open(pdfUrl, '_blank');
+  const handleDownload = async (pdfUrl: string, title: string) => {
+    try {
+      // Erstelle einen Link-Element und simuliere einen Klick für direkten Download
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      
+      // Erstelle sicheren Dateinamen aus dem Titel
+      const filename = title
+        .replace(/[^a-z0-9äöüß]/gi, '_')
+        .replace(/_+/g, '_')
+        .toLowerCase();
+      
+      link.setAttribute('download', `${filename}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      toast.error('Fehler beim Herunterladen der PDF-Datei');
+    }
   };
 
-  if (!user) {
+  const handleDeleteClick = (id: string) => {
+    setItemToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleClearHistoryClick = () => {
+    setClearDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete || !user) return;
+    
+    try {
+      setIsDeleting(true);
+      
+      // Option 1: Direkt über Supabase löschen
+      const { error } = await supabase
+        .from('pdf_history')
+        .delete()
+        .eq('id', itemToDelete)
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      // Option 2: Alternativ über die API löschen
+      // await fetch(`${API_ENDPOINT}/api/history/delete/${itemToDelete}?userId=${user.id}`, {
+      //   method: 'DELETE',
+      // });
+      
+      setHistoryItems(prev => prev.filter(item => item.id !== itemToDelete));
+      toast.success('Eintrag erfolgreich gelöscht');
+    } catch (error) {
+      console.error('Error deleting history entry:', error);
+      toast.error('Fehler beim Löschen des Eintrags');
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setItemToDelete(null);
+    }
+  };
+
+  const handleClearConfirm = async () => {
+    if (!user) return;
+    
+    try {
+      setIsClearing(true);
+      
+      // Option 1: Direkt über Supabase löschen
+      const { error } = await supabase
+        .from('pdf_history')
+        .delete()
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      // Option 2: Alternativ über die API löschen
+      // await fetch(`${API_ENDPOINT}/api/history/clear/${user.id}`, {
+      //   method: 'DELETE',
+      // });
+      
+      setHistoryItems([]);
+      toast.success('Verlauf erfolgreich gelöscht');
+    } catch (error) {
+      console.error('Error clearing history:', error);
+      toast.error('Fehler beim Löschen des Verlaufs');
+    } finally {
+      setIsClearing(false);
+      setClearDialogOpen(false);
+    }
+  };
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <div className="flex-1 container max-w-6xl px-4">
-          <Header />
-          <main className="py-12 flex flex-col items-center justify-center">
-            <div className="text-center space-y-4">
-              <HistoryIcon size={48} className="mx-auto text-muted-foreground" />
-              <h2 className="text-2xl font-bold">Sign in to view your history</h2>
-              <p className="text-muted-foreground max-w-md">
-                Create an account or sign in to save and access your PDF conversion history
-              </p>
-              <Button onClick={() => navigate("/")}>
-                Back to Home
-              </Button>
-            </div>
-          </main>
-        </div>
-        <Footer />
+      <div className="container max-w-4xl px-4">
+        <Header />
+        <main className="py-8">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="flex-1 container max-w-6xl px-4">
-        <Header />
-        <main className="py-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold">Your PDF History</h1>
-            <Button onClick={() => navigate("/")} variant="outline">
-              Convert New PDF
-            </Button>
-          </div>
-
-          {historyItems.length === 0 ? (
-            <div className="text-center py-12 space-y-4">
-              <HistoryIcon size={48} className="mx-auto text-muted-foreground" />
-              <h2 className="text-xl font-medium">No PDFs yet</h2>
-              <p className="text-muted-foreground">
-                Convert your first webpage to PDF to start building your history
-              </p>
-              <Button onClick={() => navigate("/")}>
-                Convert a Webpage
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {historyItems.map((item) => (
-                <Card key={item.id} className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="flex flex-col md:flex-row">
-                      <div className="p-4 md:p-6 flex-grow">
-                        <div className="flex flex-col">
-                          <h3 className="font-medium text-lg truncate">{item.title}</h3>
-                          <a 
-                            href={item.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-sm text-muted-foreground flex items-center hover:underline truncate"
-                          >
-                            {item.url}
-                            <ExternalLink size={14} className="ml-1 flex-shrink-0" />
-                          </a>
-                          <time className="text-xs text-muted-foreground mt-2">
-                            Converted on {formatDate(item.createdAt)}
-                          </time>
-                        </div>
-                      </div>
-                      <div className="flex flex-row md:flex-col gap-2 p-4 md:border-l border-t md:border-t-0 bg-muted/30">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleRegenerate(item.url)}
-                        >
-                          Regenerate
-                        </Button>
-                        <Button 
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => handleDownload(item.pdfUrl)}
-                        >
-                          <Download size={16} className="mr-2" />
-                          Download
-                        </Button>
-                      </div>
+    <div className="container max-w-4xl px-4">
+      <Header />
+      
+      <main className="py-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <HistoryIcon className="h-5 w-5" />
+              Konvertierungsverlauf
+            </CardTitle>
+            {historyItems.length > 0 && (
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchHistory}
+                  disabled={isLoading}
+                >
+                  <RefreshCw size={16} className="mr-1" />
+                  Aktualisieren
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleClearHistoryClick}
+                  disabled={isLoading || isClearing}
+                >
+                  <Trash2 size={16} className="mr-1" />
+                  Verlauf löschen
+                </Button>
+              </div>
+            )}
+          </CardHeader>
+          
+          <CardContent>
+            {historyItems.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Noch keine PDFs erstellt.</p>
+                <Button
+                  variant="link"
+                  onClick={() => navigate('/')}
+                  className="mt-2"
+                >
+                  Erste PDF erstellen
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {historyItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between border-b pb-4 last:border-0"
+                  >
+                    <div className="space-y-1">
+                      <h3 className="font-medium">{item.title}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(item.created_at).toLocaleDateString('de-DE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      >
+                        {item.url}
+                        <ExternalLink size={12} />
+                      </a>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRegenerate(item.url)}
+                      >
+                        Neu erstellen
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleDownload(item.pdf_url, item.title)}
+                      >
+                        <Download size={16} className="mr-2" />
+                        PDF
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteClick(item.id)}
+                      >
+                        <Trash2 size={16} className="text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+          
+          <CardFooter className="border-t flex justify-between text-xs text-muted-foreground pt-4">
+            <div className="flex items-center gap-1">
+              <AlertTriangle size={14} />
+              Verlaufseinträge werden nach 7 Tagen automatisch gelöscht
             </div>
-          )}
-        </main>
-      </div>
-      <Footer />
+            <div>
+              {historyItems.length} {historyItems.length === 1 ? 'Eintrag' : 'Einträge'}
+            </div>
+          </CardFooter>
+        </Card>
+      </main>
+      
+      {/* Dialog zum Löschen eines Eintrags */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eintrag löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Möchtest du diesen Eintrag wirklich aus deinem Verlauf löschen?
+              Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Wird gelöscht...' : 'Löschen'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Dialog zum Löschen des gesamten Verlaufs */}
+      <AlertDialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gesamten Verlauf löschen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Möchtest du wirklich deinen gesamten Verlauf löschen?
+              Diese Aktion kann nicht rückgängig gemacht werden und alle Einträge werden unwiderruflich entfernt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClearing}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearConfirm}
+              disabled={isClearing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isClearing ? 'Wird gelöscht...' : 'Gesamten Verlauf löschen'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
