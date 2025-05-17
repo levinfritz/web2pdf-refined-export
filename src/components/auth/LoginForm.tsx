@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Google, Github } from "lucide-react";
+import { Github } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const loginSchema = z.object({
@@ -92,7 +92,10 @@ const LoginForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
       
       <div className="grid grid-cols-2 gap-4">
         <Button variant="outline" type="button" onClick={() => loginWithGoogle()} disabled={isLoading}>
-          <Google size={16} className="mr-2" />
+          <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M8 12 h8 M12 8 v8"></path>
+          </svg>
           Google
         </Button>
         <Button variant="outline" type="button" onClick={() => loginWithGitHub()} disabled={isLoading}>
