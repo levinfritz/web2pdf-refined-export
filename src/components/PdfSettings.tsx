@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PdfSettingsType } from "@/types/pdf-types";
+import { PdfSettingsType, PaperSizeType, MarginsType, ThemeType, StylePresetType } from "@/types/pdf-types";
 
 interface PdfSettingsProps {
   settings: PdfSettingsType;
@@ -39,7 +39,7 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
             <Label>Paper Size</Label>
             <RadioGroup
               value={settings.paperSize}
-              onValueChange={(value) => onSettingsChange({ paperSize: value })}
+              onValueChange={(value: string) => onSettingsChange({ paperSize: value as PaperSizeType })}
               className="flex flex-wrap gap-2"
               disabled={disabled}
             >
@@ -75,7 +75,7 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
             <Label>Margins</Label>
             <Select
               value={settings.margins}
-              onValueChange={(value) => onSettingsChange({ margins: value })}
+              onValueChange={(value: string) => onSettingsChange({ margins: value as MarginsType })}
               disabled={disabled}
             >
               <SelectTrigger>
@@ -129,7 +129,7 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
               <Label>Theme</Label>
               <RadioGroup
                 value={settings.theme}
-                onValueChange={(value) => onSettingsChange({ theme: value as "auto" | "light" | "dark" })}
+                onValueChange={(value: string) => onSettingsChange({ theme: value as ThemeType })}
                 className="flex gap-4"
                 disabled={disabled}
               >
@@ -168,7 +168,7 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
             <Label>Style Preset</Label>
             <Select
               value={settings.stylePreset}
-              onValueChange={(value) => onSettingsChange({ stylePreset: value })}
+              onValueChange={(value: string) => onSettingsChange({ stylePreset: value as StylePresetType })}
               disabled={disabled}
             >
               <SelectTrigger>

@@ -1,5 +1,6 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { PdfSettingsType } from "@/types/pdf-types";
 import { convertUrlToPdf } from "@/services/pdfService";
 
 const Index = () => {
+  const location = useLocation();
   const [url, setUrl] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -28,6 +30,16 @@ const Index = () => {
     fontSize: 100,
     stylePreset: "default",
   });
+
+  // Handle URL from route parameters (for re-generation from history)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const urlParam = urlParams.get("url");
+    
+    if (urlParam) {
+      handleUrlSubmit(urlParam);
+    }
+  }, [location.search]);
 
   const handleUrlSubmit = async (submittedUrl: string) => {
     setUrl(submittedUrl);
