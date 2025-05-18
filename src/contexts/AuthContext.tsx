@@ -1,7 +1,7 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { XIcon } from "lucide-react";
 
 export type User = {
   id: string;
@@ -91,11 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const showWelcomeToast = (userData: User) => {
     toast.success(`Willkommen, ${userData.displayName || userData.email.split('@')[0]}!`, {
-      duration: 5000,
+      duration: 3000,
       position: 'top-center',
       className: 'welcome-toast',
       icon: '👋',
-      description: 'Schön, dass du wieder da bist!'
+      description: 'Schön, dass du wieder da bist!',
+      closeButton: true
     });
   };
 

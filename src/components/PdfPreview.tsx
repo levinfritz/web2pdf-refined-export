@@ -1,10 +1,9 @@
-
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PaperSizeType, PdfSettingsType } from "@/types/pdf-types";
 import { cn } from "@/lib/utils";
-import { Moon, Sun, Wrench, XIcon, RotateCw } from "lucide-react";
+import { Moon, Sun, Wrench, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { 
@@ -99,13 +98,22 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
           }}
         >
           {isLoading ? (
-            <div className="w-full h-full flex items-center justify-center p-6">
-              <div className="text-center">
-                <RotateCw size={36} className="mx-auto mb-4 animate-spin text-primary" />
-                <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-1">Generiere PDF...</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Dies kann einen Moment dauern...
-                </p>
+            <div className="w-full h-full p-6">
+              <div className="space-y-4">
+                <Skeleton className="h-8 w-3/4 mx-auto" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <div className="py-2"></div>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+                <div className="py-2"></div>
+                <Skeleton className="h-32 w-full" />
+                <div className="py-2"></div>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
               </div>
             </div>
           ) : !url ? (
@@ -127,13 +135,22 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
               title="PDF Preview"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center p-6">
-              <div className="text-center">
-                <RotateCw size={36} className="mx-auto mb-4 animate-spin text-primary" />
-                <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-1">Verarbeite Vorschau...</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Dies kann einen Moment dauern...
-                </p>
+            <div className="w-full h-full p-6">
+              <div className="space-y-4">
+                <Skeleton className="h-8 w-3/4 mx-auto" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <div className="py-2"></div>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+                <div className="py-2"></div>
+                <Skeleton className="h-32 w-full" />
+                <div className="py-2"></div>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
               </div>
             </div>
           )}
