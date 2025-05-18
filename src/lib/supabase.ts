@@ -12,5 +12,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
+    storageKey: 'web2pdf-auth-token',
+    detectSessionInUrl: true,  // Added to detect the session from OAuth redirects
+    flowType: 'pkce',          // Added for better security with OAuth
   }
 });
