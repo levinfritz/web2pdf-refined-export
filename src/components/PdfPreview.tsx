@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -98,15 +99,14 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
           }}
         >
           {isLoading ? (
-            <div className="w-full h-full p-4 flex flex-col gap-3">
-              <div className="skeleton h-8 w-3/4 mb-4 rounded-md"></div>
-              <div className="skeleton h-4 w-full rounded-md"></div>
-              <div className="skeleton h-4 w-5/6 rounded-md"></div>
-              <div className="skeleton h-4 w-full rounded-md"></div>
-              <div className="skeleton h-40 w-full mt-2 rounded-md"></div>
-              <div className="skeleton h-4 w-full mt-2 rounded-md"></div>
-              <div className="skeleton h-4 w-5/6 rounded-md"></div>
-              <div className="skeleton h-4 w-4/5 rounded-md"></div>
+            <div className="w-full h-full flex items-center justify-center p-6">
+              <div className="text-center">
+                <RotateCw size={36} className="mx-auto mb-4 animate-spin text-primary" />
+                <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-1">Generiere PDF...</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Dies kann einen Moment dauern...
+                </p>
+              </div>
             </div>
           ) : !url ? (
             <div className="w-full h-full flex items-center justify-center p-6">
@@ -129,10 +129,10 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
           ) : (
             <div className="w-full h-full flex items-center justify-center p-6">
               <div className="text-center">
-                <RotateCw size={36} className="mx-auto mb-4 animate-spin text-gray-400" />
-                <h3 className="font-medium text-gray-500 mb-1">Generating Preview</h3>
-                <p className="text-sm text-gray-400">
-                  This may take a few moments...
+                <RotateCw size={36} className="mx-auto mb-4 animate-spin text-primary" />
+                <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-1">Verarbeite Vorschau...</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Dies kann einen Moment dauern...
                 </p>
               </div>
             </div>
