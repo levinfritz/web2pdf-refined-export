@@ -13,10 +13,10 @@ export type User = {
 export type AuthContextType = {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<any>;  // Changed return type
   loginWithGoogle: () => Promise<void>;
   loginWithGitHub: () => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<any>;  // Changed return type
   logout: () => Promise<void>;
 };
 
@@ -176,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     isLoading,
     login,

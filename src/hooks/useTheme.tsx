@@ -1,19 +1,7 @@
 
-import { useEffect, useState } from "react";
+// This file is now deprecated in favor of the ThemeContext approach.
+// We're just re-exporting from the context for compatibility.
 
-type Theme = "dark" | "light";
+import { useTheme as useThemeContext } from "@/contexts/ThemeContext";
 
-export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem("theme") as Theme) || "light"
-  );
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove("light", "dark");
-    root.classList.add(theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
-  return { theme, setTheme };
-}
+export const useTheme = useThemeContext;
