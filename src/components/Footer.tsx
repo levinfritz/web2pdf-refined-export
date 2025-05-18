@@ -54,9 +54,11 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <a href="mailto:support@web2pdf.plus" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  support@web2pdf.plus
-                </a>
+                <p className="text-sm text-muted-foreground">
+                  Web2PDF+ GmbH<br />
+                  Böhlstrasse 6<br />
+                  9300 Wittenbach
+                </p>
               </li>
             </ul>
           </div>

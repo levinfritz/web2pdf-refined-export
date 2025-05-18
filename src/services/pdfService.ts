@@ -8,7 +8,8 @@ const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 'http://localhost:3000
 export const convertUrlToPdf = async (
   url: string,
   settings: PdfSettingsType,
-  userId?: string
+  userId?: string,
+  auth?: { username: string; password: string }
 ): Promise<ConversionResponse> => {
   try {
     // Sende Anfrage an den Backend-Service
@@ -21,6 +22,7 @@ export const convertUrlToPdf = async (
         url,
         settings,
         userId,
+        auth,
       }),
     });
 

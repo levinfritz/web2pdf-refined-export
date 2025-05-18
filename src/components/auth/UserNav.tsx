@@ -92,13 +92,6 @@ const UserNav: React.FC = () => {
             >
               Abmelden
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setDeleteDialogOpen(true)}
-              className="text-destructive"
-              disabled={isLoading}
-            >
-              Account löschen
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 

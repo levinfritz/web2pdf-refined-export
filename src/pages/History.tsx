@@ -52,10 +52,23 @@ const History = () => {
   const fetchHistory = async () => {
     try {
       setIsLoading(true);
+      if (!user) {
+        setHistoryItems([]);
+        return;
+      }
+      
+      // Run cleanup function to remove entries older than 7 days
+      try {
+        await supabase.rpc('cleanup_old_history');
+      } catch (cleanupError) {
+        console.error('Error during history cleanup:', cleanupError);
+        // Continue with fetching history even if cleanup fails
+      }
+      
       const { data, error } = await supabase
         .from('pdf_history')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -70,9 +83,7 @@ const History = () => {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchHistory();
-    }
+    fetchHistory();
   }, [user]);
 
   const handleRegenerate = (url: string) => {
@@ -115,25 +126,44 @@ const History = () => {
     try {
       setIsDeleting(true);
       
-      // Option 1: Direkt über Supabase löschen
-      const { error } = await supabase
-        .from('pdf_history')
-        .delete()
-        .eq('id', itemToDelete)
-        .eq('user_id', user.id);
-        
-      if (error) throw error;
+      // Call the stored function to delete a single history entry
+      const { data, error } = await supabase
+        .rpc('delete_history_entry', {
+          entry_id: itemToDelete,
+          user_uuid: user.id
+        });
       
-      // Option 2: Alternativ über die API löschen
-      // await fetch(`${API_ENDPOINT}/api/history/delete/${itemToDelete}?userId=${user.id}`, {
-      //   method: 'DELETE',
-      // });
+      if (error) {
+        console.error('Supabase deletion error:', error);
+        throw error;
+      }
       
-      setHistoryItems(prev => prev.filter(item => item.id !== itemToDelete));
-      toast.success('Eintrag erfolgreich gelöscht');
+      if (data) {
+        // Only update the UI after successful deletion
+        setHistoryItems(prev => prev.filter(item => item.id !== itemToDelete));
+        toast.success('Eintrag erfolgreich gelöscht');
+      } else {
+        toast.error('Eintrag konnte nicht gelöscht werden');
+      }
     } catch (error) {
       console.error('Error deleting history entry:', error);
       toast.error('Fehler beim Löschen des Eintrags');
+      
+      // Fallback to direct delete if the RPC fails
+      try {
+        const { error: directError } = await supabase
+          .from('pdf_history')
+          .delete()
+          .eq('id', itemToDelete)
+          .eq('user_id', user.id);
+          
+        if (!directError) {
+          setHistoryItems(prev => prev.filter(item => item.id !== itemToDelete));
+          toast.success('Eintrag erfolgreich gelöscht (Fallback)');
+        }
+      } catch (fbError) {
+        console.error('Fallback deletion error:', fbError);
+      }
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
@@ -147,24 +177,43 @@ const History = () => {
     try {
       setIsClearing(true);
       
-      // Option 1: Direkt über Supabase löschen
-      const { error } = await supabase
-        .from('pdf_history')
-        .delete()
-        .eq('user_id', user.id);
-        
-      if (error) throw error;
+      // Call the stored function to clear all history entries for a user
+      const { data, error } = await supabase
+        .rpc('clear_user_history', {
+          user_uuid: user.id
+        });
       
-      // Option 2: Alternativ über die API löschen
-      // await fetch(`${API_ENDPOINT}/api/history/clear/${user.id}`, {
-      //   method: 'DELETE',
-      // });
+      if (error) {
+        console.error('Supabase deletion error:', error);
+        throw error;
+      }
       
-      setHistoryItems([]);
-      toast.success('Verlauf erfolgreich gelöscht');
+      // data contains the number of deleted entries
+      if (data !== null && data >= 0) {
+        // Only update the UI after successful deletion
+        setHistoryItems([]);
+        toast.success(`${data} Einträge erfolgreich gelöscht`);
+      } else {
+        toast.error('Verlauf konnte nicht gelöscht werden');
+      }
     } catch (error) {
       console.error('Error clearing history:', error);
       toast.error('Fehler beim Löschen des Verlaufs');
+      
+      // Fallback to direct delete if the RPC fails
+      try {
+        const { error: directError } = await supabase
+          .from('pdf_history')
+          .delete()
+          .eq('user_id', user.id);
+          
+        if (!directError) {
+          setHistoryItems([]);
+          toast.success('Verlauf erfolgreich gelöscht (Fallback)');
+        }
+      } catch (fbError) {
+        console.error('Fallback deletion error:', fbError);
+      }
     } finally {
       setIsClearing(false);
       setClearDialogOpen(false);
