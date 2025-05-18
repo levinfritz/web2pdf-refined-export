@@ -33,6 +33,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
 
   useEffect(() => {
     // Set up auth state listener
@@ -46,8 +47,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             photoURL: session.user.user_metadata?.avatar_url,
           };
           setUser(userData);
+          
+          // Show welcome toast only on sign-in events, not on every auth state change
+          if (event === 'SIGNED_IN' && !hasShownWelcome) {
+            showWelcomeToast(userData);
+            setHasShownWelcome(true);
+          }
         } else {
           setUser(null);
+          setHasShownWelcome(false);
         }
         setIsLoading(false);
       }
@@ -64,6 +72,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           photoURL: data.session.user.user_metadata?.avatar_url,
         };
         setUser(userData);
+        
+        // Show welcome toast on initial load if not shown already
+        if (!hasShownWelcome) {
+          showWelcomeToast(userData);
+          setHasShownWelcome(true);
+        }
       }
       setIsLoading(false);
     };
@@ -73,7 +87,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [hasShownWelcome]);
+
+  const showWelcomeToast = (userData: User) => {
+    toast.success(`Willkommen, ${userData.displayName || userData.email.split('@')[0]}!`, {
+      duration: 5000,
+      position: 'top-center',
+      className: 'welcome-toast',
+      icon: '👋',
+      description: 'Schön, dass du wieder da bist!'
+    });
+  };
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);

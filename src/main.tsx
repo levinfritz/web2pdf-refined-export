@@ -28,6 +28,27 @@ referrerPolicyMetaTag.name = 'referrer';
 referrerPolicyMetaTag.content = 'strict-origin-when-cross-origin';
 document.head.appendChild(referrerPolicyMetaTag);
 
+// Add custom CSS for toast notifications
+const styleTag = document.createElement('style');
+styleTag.textContent = `
+  .welcome-toast {
+    font-weight: 500;
+    animation: slide-in-top 0.5s cubic-bezier(0.250, 0.460, 0.450, 0.940) both !important;
+  }
+  
+  @keyframes slide-in-top {
+    0% {
+      transform: translateY(-20px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+`;
+document.head.appendChild(styleTag);
+
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
     <App />

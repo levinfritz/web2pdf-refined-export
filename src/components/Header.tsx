@@ -38,20 +38,9 @@ const Header: React.FC = () => {
         </div>
       </div>
       
-      {user ? (
-        <div className="mt-4 text-center">
-          <p className="text-muted-foreground">
-            Willkommen, <span className="font-medium text-foreground">{user.displayName || user.email.split('@')[0]}</span>!
-          </p>
-          <p className="text-center mt-2 text-muted-foreground max-w-md mx-auto">
-            Convert any webpage to a beautifully formatted PDF with customizable options
-          </p>
-        </div>
-      ) : (
-        <p className="text-center mt-2 text-muted-foreground max-w-md mx-auto">
-          Convert any webpage to a beautifully formatted PDF with customizable options
-        </p>
-      )}
+      <p className="text-center mt-2 text-muted-foreground max-w-md mx-auto">
+        Convert any webpage to a beautifully formatted PDF with customizable options
+      </p>
     </header>
   );
 };
