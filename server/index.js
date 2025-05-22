@@ -120,6 +120,7 @@ app.get('/', (req, res) => {
 // Hauptendpunkt für die PDF-Konvertierung mit Rate-Limiting und JWT-Authentifizierung
 app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
   try {
+    console.log("PDF-Konvertierung gestartet...");
     const { url, settings } = req.body;
     const userId = req.user.id;
 
@@ -139,10 +140,17 @@ app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
     const pdfName = `${pdfId}.pdf`;
     const pdfPath = path.join(OUTPUT_DIR, pdfName);
     
-    // Browser starten
+    // Browser starten mit erweiterten Optionen für Ubuntu 24.04
     const browser = await puppeteer.launch({
       headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--window-size=1280,720'
+      ]
     });
     
     // PDF erzeugen
@@ -155,8 +163,13 @@ app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
     // Browser schließen
     await browser.close();
     
-    // Öffentliche URL für den Zugriff auf die PDF
-    const pdfUrl = `${req.protocol}://${req.get('host')}/output/${pdfName}`;
+    // Öffentliche URL für den Zugriff auf die PDF mit korrigiertem Host
+    let host = req.get('host');
+    // Ersetze localhost durch die tatsächliche IP, wenn nötig
+    if (host.includes('localhost')) {
+      host = '192.168.1.205'; // Server-IP
+    }
+    const pdfUrl = `${req.protocol}://${host}/output/${pdfName}`;
     
     console.log(`PDF erfolgreich erstellt: ${pdfUrl}`);
     

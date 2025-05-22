@@ -29,8 +29,20 @@ export const convertUrlToPdf = async (
       throw new Error('Ungültige URL. Bitte geben Sie eine gültige URL mit Protokoll (http/https) ein.');
     }
 
+    // Entferne Schrägstriche am Anfang von API_ENDPOINT, falls vorhanden
+    const endpoint = API_ENDPOINT.replace(/\/+$/, '');
+    
+    // WICHTIG: Korrekter API-Pfad ohne doppelte /api/
+    // Wenn API_ENDPOINT bereits /api enthält, dann nur /convert anfügen
+    // sonst /api/convert verwenden
+    const apiUrl = endpoint.includes('/api') 
+                  ? `${endpoint}/convert` 
+                  : `${endpoint}/api/convert`;
+
+    console.log('Verwendeter API-Endpunkt:', apiUrl);
+    
     // Sende Anfrage an den Backend-Service mit JWT-Token
-    const response = await fetch(`${API_ENDPOINT}/api/convert`, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
