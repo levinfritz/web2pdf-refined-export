@@ -5,26 +5,81 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { PDFDocument } = require('pdf-lib');
+const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
+const validator = require('validator');
+const dotenv = require('dotenv');
+
+// Lade Umgebungsvariablen
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const OUTPUT_DIR = path.join(__dirname, 'output');
+const JWT_SECRET = process.env.JWT_SECRET || 'default_unsafe_secret';
+const PDF_RETENTION_DAYS = process.env.PDF_RETENTION_DAYS || 14;
 
 // Stelle sicher, dass das Ausgabeverzeichnis existiert
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
-app.use(cors());
+// Konfiguriere CORS für Sicherheit
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://stiefelinho.ch'] // Produktions-Domain
+    : ['http://localhost:5173', 'http://127.0.0.1:5173'], // Entwicklungsdomains
+  methods: ['GET', 'POST', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Rate-Limiter für API-Endpunkte
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 Minuten
+  max: 100, // Limit auf 100 Anfragen pro IP in 15 Minuten
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Zu viele Anfragen von dieser IP, bitte versuchen Sie es später erneut'
+});
+
+// Middleware für JWT-Authentifizierung
+const authenticateJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (authHeader) {
+    const token = authHeader.split(' ')[1];
+    
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (err) {
+        return res.status(403).json({ error: 'Token ungültig oder abgelaufen' });
+      }
+      
+      req.user = user;
+      next();
+    });
+  } else {
+    res.status(401).json({ error: 'Authentifizierung erforderlich' });
+  }
+};
+
+// URL-Validierungsfunktion
+const validateUrl = (url) => {
+  return validator.isURL(url, {
+    protocols: ['http', 'https'],
+    require_protocol: true,
+    require_valid_protocol: true
+  });
+};
+
 app.use(express.json());
 app.use('/output', express.static(OUTPUT_DIR));
 
-// Automatische Bereinigung alter PDFs (älter als 7 Tage)
+// Automatische Bereinigung alter PDFs (auf PDF_RETENTION_DAYS eingestellt)
 setInterval(async () => {
   try {
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    console.log(`Bereinige PDFs älter als ${oneWeekAgo.toISOString()}...`);
+    const retentionDate = new Date();
+    retentionDate.setDate(retentionDate.getDate() - PDF_RETENTION_DAYS);
+    console.log(`Bereinige PDFs älter als ${retentionDate.toISOString()}...`);
     
     const files = fs.readdirSync(OUTPUT_DIR);
     let deletedCount = 0;
@@ -35,7 +90,7 @@ setInterval(async () => {
         const stats = fs.statSync(filePath);
         const fileCreationTime = new Date(stats.mtime);
         
-        if (fileCreationTime < oneWeekAgo) {
+        if (fileCreationTime < retentionDate) {
           fs.unlinkSync(filePath);
           deletedCount++;
         }
@@ -62,13 +117,19 @@ app.get('/', (req, res) => {
   });
 });
 
-// Hauptendpunkt für die PDF-Konvertierung
-app.post('/api/convert', async (req, res) => {
+// Hauptendpunkt für die PDF-Konvertierung mit Rate-Limiting und JWT-Authentifizierung
+app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
   try {
-    const { url, settings, userId } = req.body;
+    const { url, settings } = req.body;
+    const userId = req.user.id;
 
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
+    }
+    
+    // URL-Validierung
+    if (!validateUrl(url)) {
+      return res.status(400).json({ error: 'Ungültige URL. Bitte geben Sie eine gültige URL mit Protokoll (http/https) ein.' });
     }
 
     console.log(`Converting URL: ${url} with settings:`, settings);
@@ -116,13 +177,13 @@ app.post('/api/convert', async (req, res) => {
 });
 
 // Endpunkt zum Löschen eines einzelnen Verlaufseintrags
-app.delete('/api/history/delete/:id', async (req, res) => {
+app.delete('/api/history/delete/:id', apiLimiter, authenticateJWT, async (req, res) => {
   try {
     const { id } = req.params;
-    const { userId } = req.query;
+    const userId = req.user.id;
     
-    if (!id || !userId) {
-      return res.status(400).json({ error: 'ID und User ID sind erforderlich' });
+    if (!id) {
+      return res.status(400).json({ error: 'ID ist erforderlich' });
     }
 
     // In einer echten Anwendung würdest du hier mit einer Supabase-API arbeiten
@@ -141,12 +202,12 @@ app.delete('/api/history/delete/:id', async (req, res) => {
 });
 
 // Endpunkt zum Löschen aller Verlaufseinträge eines Benutzers
-app.delete('/api/history/clear/:userId', async (req, res) => {
+app.delete('/api/history/clear/:userId', apiLimiter, authenticateJWT, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId;
     
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID ist erforderlich' });
+    if (userId !== req.user.id) {
+      return res.status(403).json({ error: 'Zugriff verweigert: Sie können nur Ihren eigenen Verlauf löschen' });
     }
 
     // In einer echten Anwendung würdest du hier mit einer Supabase-API arbeiten

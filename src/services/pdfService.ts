@@ -3,8 +3,13 @@ import { PdfSettingsType, ConversionResponse } from "@/types/pdf-types";
 
 const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 'http://localhost:3000';
 
-// This is a mock service that simulates the PDF generation
-// In a real application, this would connect to a backend service
+// Funktion zum Abrufen des JWT-Tokens vom Supabase
+async function getAuthToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || null;
+}
+
+// Hauptkonvertierungsfunktion mit JWT-Authentifizierung
 export const convertUrlToPdf = async (
   url: string,
   settings: PdfSettingsType,
@@ -12,22 +17,34 @@ export const convertUrlToPdf = async (
   auth?: { username: string; password: string }
 ): Promise<ConversionResponse> => {
   try {
-    // Sende Anfrage an den Backend-Service
+    // Hole JWT-Token von Supabase
+    const token = await getAuthToken();
+    
+    if (!token) {
+      throw new Error('Authentifizierung erforderlich. Bitte melden Sie sich an.');
+    }
+    
+    // URL-Validierung im Frontend
+    if (!isValidUrl(url)) {
+      throw new Error('Ungültige URL. Bitte geben Sie eine gültige URL mit Protokoll (http/https) ein.');
+    }
+
+    // Sende Anfrage an den Backend-Service mit JWT-Token
     const response = await fetch(`${API_ENDPOINT}/api/convert`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         url,
-        settings,
-        userId,
-        auth,
+        settings
       }),
     });
 
     if (!response.ok) {
-      throw new Error('PDF conversion failed');
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'PDF conversion failed');
     }
 
     const data = await response.json();
@@ -54,9 +71,19 @@ export const convertUrlToPdf = async (
     };
   } catch (error) {
     console.error('Error converting PDF:', error);
-    throw new Error('Failed to convert webpage to PDF');
+    throw error;
   }
 };
+
+// Hilfsfunktion zur URL-Validierung im Frontend
+function isValidUrl(url: string): boolean {
+  try {
+    const urlObject = new URL(url);
+    return urlObject.protocol === 'http:' || urlObject.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 // Hilfsfunktion zum Abrufen des Seitentitels
 async function fetchPageTitle(url: string): Promise<string> {

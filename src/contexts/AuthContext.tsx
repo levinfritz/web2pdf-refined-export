@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { XIcon } from "lucide-react";
 
 export type User = {
   id: string;
@@ -13,10 +12,8 @@ export type User = {
 export type AuthContextType = {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<any>;  // Changed return type
-  loginWithGoogle: () => Promise<void>;
-  loginWithGitHub: () => Promise<void>;
-  signup: (email: string, password: string) => Promise<any>;  // Changed return type
+  login: (email: string, password: string) => Promise<any>;
+  signup: (email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
 };
 
@@ -120,54 +117,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loginWithGoogle = async () => {
-    setIsLoading(true);
-    try {
-      // Use the current window location for the redirect URL
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-          queryParams: {
-            // Adding additional scope for user profile information
-            access_type: 'offline',
-            prompt: 'consent',
-          }
-        },
-      });
-      
-      if (error) throw error;
-      
-      // No toast here as we're redirecting to Google
-    } catch (error: any) {
-      toast.error(`Google Login fehlgeschlagen: ${error.message}`);
-      setIsLoading(false);
-      throw error;
-    }
-  };
-
-  const loginWithGitHub = async () => {
-    setIsLoading(true);
-    try {
-      // Use the current window location for the redirect URL
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: window.location.origin,
-          scopes: 'user:email', // Request user email information
-        },
-      });
-      
-      if (error) throw error;
-      
-      // No toast here as we're redirecting to GitHub
-    } catch (error: any) {
-      toast.error(`GitHub Login fehlgeschlagen: ${error.message}`);
-      setIsLoading(false);
-      throw error;
-    }
-  };
-
   const signup = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -213,8 +162,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     isLoading,
     login,
-    loginWithGoogle,
-    loginWithGitHub,
     signup,
     logout,
   };

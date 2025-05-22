@@ -4,13 +4,13 @@
 -- Sie können stattdessen einen Webhook oder eine serverseitige Funktion verwenden,
 -- um alte Einträge regelmäßig zu löschen.
 
--- Erstelle eine Funktion zum Löschen alter Einträge (älter als 7 Tage)
+-- Erstelle eine Funktion zum Löschen alter Einträge (älter als 14 Tage)
 CREATE OR REPLACE FUNCTION cleanup_old_history()
 RETURNS void AS $$
 BEGIN
-  -- Lösche Einträge, die älter als 7 Tage sind
+  -- Lösche Einträge, die älter als 14 Tage sind
   DELETE FROM pdf_history
-  WHERE created_at < (NOW() - INTERVAL '7 days');
+  WHERE created_at < (NOW() - INTERVAL '14 days');
 END;
 $$ LANGUAGE plpgsql;
 
