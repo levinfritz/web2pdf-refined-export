@@ -1,6 +1,8 @@
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+import './i18n'; // i18next importieren
 import { ThemeProvider } from './contexts/ThemeContext'
 
 // Add Content Security Policy meta tag for improved security
@@ -45,8 +47,10 @@ styleTag.textContent = `
 `;
 document.head.appendChild(styleTag);
 
-createRoot(document.getElementById("root")!).render(
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <ThemeProvider>
-    <App />
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
   </ThemeProvider>
 );

@@ -1,0 +1,116 @@
+{
+  "common": {
+    "settings": "Einstellungen",
+    "profile": "Profil",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "upload": "Hochladen",
+    "downloading": "Wird heruntergeladen...",
+    "uploading": "Wird hochgeladen...",
+    "saving": "Wird gespeichert...",
+    "loading": "Wird geladen...",
+    "success": "Erfolg",
+    "error": "Fehler"
+  },
+  "header": {
+    "home": "Startseite",
+    "history": "Verlauf",
+    "settings": "Einstellungen",
+    "logout": "Abmelden",
+    "tagline": "Konvertiere jede Webseite in ein schön formatiertes PDF mit anpassbaren Optionen"
+  },
+  "settings": {
+    "profile": {
+      "title": "Profil",
+      "description": "Verwalte deine persönlichen Informationen",
+      "profilePicture": "Profilbild",
+      "maxFileSize": "Maximal 2MB, Format: JPG, PNG oder GIF",
+      "displayName": "Anzeigename",
+      "currentEmail": "Aktuelle E-Mail",
+      "newEmail": "Neue E-Mail-Adresse",
+      "emailNote": "Nach der Änderung erhältst du eine Bestätigungs-E-Mail.",
+      "emailError": "Bitte gib eine neue E-Mail-Adresse ein."
+    },
+    "pdfSettings": {
+      "title": "PDF-Voreinstellungen",
+      "description": "Standard-Einstellungen für PDF-Konvertierungen",
+      "paperFormat": "Bevorzugtes Papierformat",
+      "orientation": "Bevorzugte Ausrichtung",
+      "portrait": "Hochformat",
+      "landscape": "Querformat",
+      "margins": "Ränder",
+      "marginNone": "Keine",
+      "marginSmall": "Klein",
+      "marginNormal": "Normal",
+      "marginLarge": "Groß",
+      "removeAds": "Werbung entfernen",
+      "removeAdsDesc": "Standardmäßig Werbung aus PDF entfernen",
+      "preserveLinks": "Interaktive Links",
+      "preserveLinksDesc": "Links im PDF klickbar machen",
+      "fontSize": "Schriftgröße"
+    },
+    "passwordSecurity": {
+      "title": "Passwort & Sicherheit",
+      "description": "Verwalte dein Passwort und die Sicherheitseinstellungen",
+      "resetPassword": "Passwort zurücksetzen",
+      "resetPasswordNote": "Du erhältst eine E-Mail mit einem Link zum Zurücksetzen deines Passworts."
+    },
+    "linkedAccounts": {
+      "title": "Verknüpfte Konten",
+      "description": "Verknüpfe deinen Account mit einem anderen Dienst für einfaches Login",
+      "noLinkedAccounts": "Du hast noch kein Konto verknüpft. Wähle einen Dienst zur Verknüpfung:",
+      "linked": "Verknüpft",
+      "unlink": "Trennen",
+      "linkWithGoogle": "Mit Google verknüpfen",
+      "linkWithGithub": "Mit GitHub verknüpfen",
+      "linkError": "Fehler bei der Verknüpfung",
+      "unlinkError": "Das Entfernen einer Kontenverknüpfung wird momentan nicht unterstützt."
+    },
+    "privacyData": {
+      "title": "Datenschutz & Daten",
+      "description": "Verwalte deine Daten und Datenschutzeinstellungen",
+      "cookieSettings": "Cookie-Einstellungen",
+      "necessaryCookies": "Notwendige Cookies",
+      "necessaryCookiesDesc": "Unbedingt erforderlich für die Funktionalität der Website",
+      "preferenceCookies": "Präferenz-Cookies",
+      "preferenceCookiesDesc": "Speichern deine Einstellungen und Vorlieben",
+      "statisticsCookies": "Statistik-Cookies",
+      "statisticsCookiesDesc": "Helfen uns zu verstehen, wie Besucher mit der Website interagieren",
+      "marketingCookies": "Marketing-Cookies",
+      "marketingCookiesDesc": "Werden verwendet, um personalisierte Werbung anzuzeigen",
+      "dataRetention": "Datenspeicherung",
+      "dataRetentionQuestion": "Wie lange sollen deine Daten gespeichert werden?",
+      "dataRetentionNote": "Nach Ablauf dieser Zeit werden deine gespeicherten PDFs und der Verlauf gelöscht.",
+      "30days": "30 Tage",
+      "90days": "90 Tage",
+      "1year": "1 Jahr",
+      "forever": "Unbegrenzt",
+      "usageStats": "Nutzungsstatistiken",
+      "usageStatsDesc": "Anonyme Nutzungsdaten zur Verbesserung des Dienstes teilen",
+      "exportData": "Meine Daten exportieren",
+      "exportDataNote": "Exportiere alle deine Daten, einschließlich PDF-Verlauf und Einstellungen."
+    },
+    "appearance": {
+      "title": "Darstellung",
+      "description": "Passe das Erscheinungsbild der Anwendung an",
+      "darkMode": "Dark Mode",
+      "darkModeDesc": "Aktiviere den dunklen Modus für die Anwendung",
+      "language": "Sprache",
+      "languageNote": "Diese Einstellung ändert die Sprache der gesamten Anwendung.",
+      "accentColor": "Farbakzent",
+      "accentColorDesc": "Die Akzentfarbe wird für Buttons, Links und Hervorhebungen verwendet.",
+      "default": "Standard",
+      "blue": "Blau",
+      "green": "Grün",
+      "purple": "Lila"
+    },
+    "dangerZone": {
+      "title": "Gefahrenzone",
+      "description": "Irreversible Aktionen für deinen Account",
+      "deleteAccount": "Account löschen",
+      "deleteConfirmTitle": "Account wirklich löschen?",
+      "deleteConfirmDesc": "Diese Aktion kann nicht rückgängig gemacht werden. Dein Account und alle damit verbundenen Daten werden permanent gelöscht."
+    }
+  }
+} 

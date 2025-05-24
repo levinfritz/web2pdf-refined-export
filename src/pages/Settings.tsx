@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import {
   Card,
   CardContent,
@@ -23,40 +25,274 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Github, Loader2 } from "lucide-react";
 import Header from "@/components/Header";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { PaperSizeType } from "@/types/pdf-types";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const Settings = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { t } = useTranslation(); // Hook für Übersetzungen
+  const { accentColor, setAccentColor } = useTheme();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [emailChangeLoading, setEmailChangeLoading] = useState(false);
   const [passwordResetLoading, setPasswordResetLoading] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  const [displayName, setDisplayName] = useState(user?.displayName || "");
+  const [displayNameLoading, setDisplayNameLoading] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  
+  // Verknüpfte Konten Status - Nur ein Konto kann verknüpft sein
+  const [linkedAccount, setLinkedAccount] = useState<'google' | 'github' | null>(null);
+  const [accountLinking, setAccountLinking] = useState(false);
+  
+  // App-Einstellungen - Standardsprache ist Englisch
   const [settings, setSettings] = useState({
     darkMode: false,
-    language: "de",
+    language: "en", // Standardmäßig Englisch
+    accentColor: "blue" // Nur 3 Farben: blue, green, purple
   });
+  
+  // PDF-Voreinstellungen
+  const [pdfSettings, setPdfSettings] = useState({
+    paperSize: "A4" as PaperSizeType,
+    orientation: "portrait",
+    removeAds: true,
+    preserveLinks: true,
+    fontSize: 100,
+    margins: "normal"
+  });
+  
+  // Datenschutz-Einstellungen mit erweiterten Cookie-Optionen
+  const [privacySettings, setPrivacySettings] = useState({
+    shareUsageData: true,
+    cookieSettings: {
+      necessary: true, // Immer aktiviert
+      preferences: true,
+      statistics: true,
+      marketing: false
+    },
+    dataRetention: "30days" // Optionen: "30days", "90days", "1year", "forever"
+  });
+  
+  // Debounce Funktionalität für API-Aufrufe
+  const updateTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  const debouncedUpdateUser = (data: any) => {
+    // Löschen Sie alle vorherigen ausstehenden Aufrufe
+    if (updateTimeout.current) {
+      clearTimeout(updateTimeout.current);
+    }
+    
+    // Setzen Sie einen neuen Timeout für den Aufruf (500ms Verzögerung)
+    updateTimeout.current = setTimeout(async () => {
+      try {
+        console.log('Debounced updateUser with data:', data);
+        await supabase.auth.updateUser({ data });
+        toast.success(t("common.success"));
+      } catch (error) {
+        console.error('Error in debounced updateUser:', error);
+        toast.error(t("common.error"));
+      }
+    }, 500);
+  };
+  
+  // Initialisiere Einstellungen aus lokalem Speicher oder Datenbank
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        // Lade Benutzer-Metadaten
+        const { data: userData, error } = await supabase.auth.getUser();
+        
+        if (error) throw error;
+        
+        if (userData?.user?.user_metadata?.app_settings) {
+          // Einstellungen aus den Metadaten laden
+          setSettings(prev => ({ 
+            ...prev, 
+            ...userData.user.user_metadata.app_settings 
+          }));
+          
+          // Setze die Sprache direkt
+          if (userData.user.user_metadata.app_settings.language) {
+            i18n.changeLanguage(userData.user.user_metadata.app_settings.language);
+          }
+          
+          // Setze die Akzentfarbe direkt, wenn sie in den App-Einstellungen vorhanden ist
+          if (userData.user.user_metadata.app_settings.accentColor) {
+            setAccentColor(userData.user.user_metadata.app_settings.accentColor);
+          }
+        }
+        
+        // Aktualisiere die Anzeige, aber vermeide redundante API-Aufrufe
+        if (settings.accentColor !== accentColor) {
+          setSettings(prev => ({
+            ...prev,
+            accentColor: accentColor
+          }));
+        }
+        
+        if (userData?.user?.user_metadata?.pdf_settings) {
+          setPdfSettings(prev => ({ 
+            ...prev, 
+            ...userData.user.user_metadata.pdf_settings 
+          }));
+        }
+        
+        if (userData?.user?.user_metadata?.privacy_settings) {
+          setPrivacySettings(prev => ({ 
+            ...prev, 
+            ...userData.user.user_metadata.privacy_settings 
+          }));
+        }
+        
+        // Prüfe verknüpfte Konten - nur ein Konto kann verknüpft sein
+        if (userData?.user?.identities) {
+          const hasGoogle = userData.user.identities.some(id => id.provider === 'google');
+          const hasGithub = userData.user.identities.some(id => id.provider === 'github');
+          
+          if (hasGoogle) {
+            setLinkedAccount('google');
+          } else if (hasGithub) {
+            setLinkedAccount('github');
+          } else {
+            setLinkedAccount(null);
+          }
+        }
+      } catch (error) {
+        console.error("Fehler beim Laden der Einstellungen:", error);
+      }
+    };
+    
+    if (user) {
+      loadSettings();
+    }
+  }, [user]);
+
+  // Füge einen separaten Effect hinzu, um die Synchronisierung der UI zu verbessern
+  useEffect(() => {
+    // Stelle sicher, dass die UI-Anzeige mit dem ThemeContext übereinstimmt
+    setSettings(prev => ({
+      ...prev,
+      accentColor: accentColor
+    }));
+  }, [accentColor]);
 
   const handleDeleteAccount = async () => {
     try {
       setIsLoading(true);
       await supabase.auth.admin.deleteUser(user?.id as string);
-      toast.success("Dein Account wurde erfolgreich gelöscht.");
+      toast.success(t("common.success"));
       await logout();
       navigate("/");
     } catch (error) {
-      toast.error("Fehler beim Löschen des Accounts. Bitte versuche es später erneut.");
+      toast.error(t("common.error"));
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSettingChange = (key: string, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    toast.success("Einstellung gespeichert");
+  const handleSettingChange = async (key: string, value: any) => {
+    // Keine Änderung, wenn der Wert gleich bleibt
+    if (settings[key] === value) {
+      console.log(`Setting ${key} already has value ${value}`);
+      return;
+    }
+    
+    // Aktualisiere zuerst den lokalen State
+    const updatedSettings = { ...settings, [key]: value };
+    setSettings(updatedSettings);
+    
+    // Wenn die Sprache geändert wurde, wechsle die Sprache direkt
+    if (key === "language") {
+      i18n.changeLanguage(value);
+    }
+
+    // Wenn die Akzentfarbe geändert wurde, setze sie im ThemeContext
+    if (key === "accentColor") {
+      setAccentColor(value);
+      // Der ThemeContext kümmert sich um die Speicherung - wir müssen das nicht doppelt tun
+      return;
+    }
+    
+    try {
+      // Lade aktuelle Metadaten, um nur die geänderten Werte zu aktualisieren
+      const { data: userData } = await supabase.auth.getUser();
+      const currentMetadata = userData?.user?.user_metadata || {};
+      const currentAppSettings = currentMetadata.app_settings || {};
+      
+      // Sonderbehandlung für Farbthemen und Dark Mode
+      let metadata: Record<string, any> = {
+        app_settings: {
+          ...currentAppSettings,
+          [key]: value
+        }
+      };
+      
+      // Speichere die Farbeinstellung und den Dark Mode als separate Strings (nicht als Objekt)
+      if (key === 'darkMode') {
+        metadata.theme_preference = value ? 'dark' : 'light'; // String-Wert für Dark Mode
+      }
+      
+      // Verwende den debounced Update statt eines direkten Aufrufs
+      debouncedUpdateUser(metadata);
+    } catch (error) {
+      console.error("Fehler beim Speichern der Einstellung:", error);
+      toast.error(t("common.error"));
+    }
+  };
+  
+  const setPdfSetting = async (key: string, value: any) => {
+    const updatedPdfSettings = { ...pdfSettings, [key]: value };
+    setPdfSettings(updatedPdfSettings);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { 
+          pdf_settings: updatedPdfSettings
+        }
+      });
+      
+      if (error) {
+        console.error("Supabase Fehler:", error);
+        throw error;
+      }
+      toast.success(t("common.success"));
+    } catch (error) {
+      console.error("Fehler beim Speichern der PDF-Einstellung:", error);
+      toast.error(t("common.error"));
+    }
+  };
+  
+  const setPrivacySetting = async (key: string, value: any) => {
+    const updatedPrivacySettings = { ...privacySettings, [key]: value };
+    setPrivacySettings(updatedPrivacySettings);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { 
+          privacy_settings: updatedPrivacySettings
+        }
+      });
+      
+      if (error) {
+        console.error("Supabase Fehler:", error);
+        throw error;
+      }
+      toast.success(t("common.success"));
+    } catch (error) {
+      console.error("Fehler beim Speichern der Datenschutz-Einstellung:", error);
+      toast.error(t("common.error"));
+    }
   };
 
   const handlePasswordReset = async () => {
@@ -68,10 +304,10 @@ const Settings = () => {
       
       if (error) throw error;
       
-      toast.success("E-Mail zum Zurücksetzen des Passworts wurde gesendet.");
+      toast.success(t("common.success"));
     } catch (error) {
       console.error(error);
-      toast.error("Fehler beim Zurücksetzen des Passworts.");
+      toast.error(t("common.error"));
     } finally {
       setPasswordResetLoading(false);
     }
@@ -80,7 +316,7 @@ const Settings = () => {
   const handleEmailChange = async () => {
     try {
       if (!newEmail) {
-        toast.error("Bitte gib eine neue E-Mail-Adresse ein.");
+        toast.error(t("settings.profile.emailError"));
         return;
       }
       
@@ -91,13 +327,205 @@ const Settings = () => {
       
       if (error) throw error;
       
-      toast.success("Bestätigungs-E-Mail zur Änderung deiner E-Mail-Adresse wurde gesendet.");
+      toast.success(t("common.success"));
       setNewEmail("");
     } catch (error) {
       console.error(error);
-      toast.error("Fehler beim Ändern der E-Mail-Adresse.");
+      toast.error(t("common.error"));
     } finally {
       setEmailChangeLoading(false);
+    }
+  };
+  
+  const handleDisplayNameChange = async () => {
+    try {
+      setDisplayNameLoading(true);
+      
+      // Verwende den debounced Update
+      debouncedUpdateUser({ 
+        name: displayName 
+      });
+      
+      // Nicht sofort den Erfolg melden, da der Update debounced ist
+      // Die Erfolgsmeldung kommt aus der debouncedUpdateUser Funktion
+    } catch (error) {
+      console.error(error);
+      toast.error(t("common.error"));
+    } finally {
+      setDisplayNameLoading(false);
+    }
+  };
+  
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      // Prüfe Dateigröße (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error(t("settings.profile.maxFileSizeError"));
+        return;
+      }
+      
+      setImageFile(file);
+    }
+  };
+  
+  const handleImageUpload = async () => {
+    if (!imageFile) return;
+    
+    try {
+      setImageLoading(true);
+      
+      // Lade Bild in Supabase Storage hoch
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, imageFile);
+      
+      if (uploadError) throw uploadError;
+      
+      // Hole öffentliche URL
+      const { data: urlData } = await supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+      
+      // Aktualisiere Benutzer-Metadaten
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { 
+          avatar_url: urlData.publicUrl 
+        }
+      });
+      
+      if (updateError) throw updateError;
+      
+      toast.success(t("common.success"));
+      setImageFile(null);
+      
+      // Lade Seite neu, um neues Bild anzuzeigen
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      toast.error(t("common.error"));
+    } finally {
+      setImageLoading(false);
+    }
+  };
+  
+  const startAccountLinking = (provider: 'google' | 'github') => {
+    setAccountLinking(true);
+    try {
+      // Verknüpfen mit dem ausgewählten Provider
+      supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/settings`
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error(t("settings.dangerZone.linkError"));
+      setAccountLinking(false);
+    }
+  };
+  
+  const unlinkAccount = async () => {
+    toast.error(t("settings.dangerZone.unlinkError"));
+    // In einer realen Implementierung würde hier eine API zum Entfernen der Verknüpfung aufgerufen werden
+  };
+  
+  const handleDataExport = async () => {
+    try {
+      setExportLoading(true);
+      
+      // In einer realen Anwendung würde hier ein API-Aufruf gemacht werden,
+      // um alle Benutzerdaten zu exportieren
+      const userData = {
+        profile: {
+          id: user?.id,
+          email: user?.email,
+          displayName: user?.displayName
+        },
+        settings: settings,
+        pdfSettings: pdfSettings,
+        privacySettings: privacySettings
+      };
+      
+      // Daten als JSON-Datei herunterladen
+      const dataStr = JSON.stringify(userData, null, 2);
+      const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+      
+      const exportFileDefaultName = `web2pdf-data-${new Date().toISOString().split('T')[0]}.json`;
+      
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+      
+      toast.success(t("common.success"));
+    } catch (error) {
+      console.error(error);
+      toast.error(t("common.error"));
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const setCookieSetting = async (key: string, value: boolean) => {
+    const updatedCookieSettings = {
+      ...privacySettings.cookieSettings,
+      [key]: value
+    };
+    
+    const updatedPrivacySettings = {
+      ...privacySettings,
+      cookieSettings: updatedCookieSettings
+    };
+    
+    setPrivacySettings(updatedPrivacySettings);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { 
+          privacy_settings: updatedPrivacySettings
+        }
+      });
+      
+      if (error) {
+        console.error("Supabase Fehler:", error);
+        throw error;
+      }
+      toast.success(t("common.success"));
+    } catch (error) {
+      console.error("Fehler beim Speichern der Cookie-Einstellung:", error);
+      toast.error(t("common.error"));
+    }
+  };
+
+  const setDataRetention = async (value: string) => {
+    const updatedPrivacySettings = {
+      ...privacySettings,
+      dataRetention: value
+    };
+    
+    setPrivacySettings(updatedPrivacySettings);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { 
+          privacy_settings: updatedPrivacySettings
+        }
+      });
+      
+      if (error) {
+        console.error("Supabase Fehler:", error);
+        throw error;
+      }
+      toast.success(t("common.success"));
+    } catch (error) {
+      console.error("Fehler beim Speichern der Datenspeicherungs-Einstellung:", error);
+      toast.error(t("common.error"));
     }
   };
 
@@ -115,14 +543,67 @@ const Settings = () => {
           {/* Profil-Einstellungen */}
           <Card>
             <CardHeader>
-              <CardTitle>Profil</CardTitle>
+              <CardTitle>{t("settings.profile.title")}</CardTitle>
               <CardDescription>
-                Verwalte deine persönlichen Informationen
+                {t("settings.profile.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Profilbild */}
               <div className="space-y-2">
-                <Label htmlFor="email">Aktuelle E-Mail</Label>
+                <Label>{t("settings.profile.profilePicture")}</Label>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16">
+                    {user.photoURL ? (
+                      <AvatarImage src={user.photoURL} alt={user.displayName || user.email} />
+                    ) : (
+                      <AvatarFallback>{user.displayName?.[0] || user.email[0].toUpperCase()}</AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="flex flex-col gap-2">
+                    <Input id="profileImage" type="file" accept="image/*" onChange={handleImageChange} />
+                    <p className="text-xs text-muted-foreground">
+                      {t("settings.profile.maxFileSize")}
+                    </p>
+                    {imageFile && (
+                      <Button 
+                        onClick={handleImageUpload} 
+                        disabled={imageLoading} 
+                        size="sm"
+                      >
+                        {imageLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {t("common.uploading")}
+                          </>
+                        ) : t("common.upload")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Anzeigename */}
+              <div className="space-y-2 pt-4">
+                <Label htmlFor="displayName">{t("settings.profile.displayName")}</Label>
+                <div className="flex gap-2 max-w-md">
+                  <Input
+                    id="displayName"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder={t("settings.profile.displayName")}
+                  />
+                  <Button 
+                    onClick={handleDisplayNameChange} 
+                    disabled={displayNameLoading}
+                  >
+                    {displayNameLoading ? t("common.saving") : t("common.save")}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">{t("settings.profile.currentEmail")}</Label>
                 <Input
                   id="email"
                   value={user.email}
@@ -132,7 +613,7 @@ const Settings = () => {
               </div>
               
               <div className="space-y-2 pt-4">
-                <Label htmlFor="newEmail">Neue E-Mail-Adresse</Label>
+                <Label htmlFor="newEmail">{t("settings.profile.newEmail")}</Label>
                 <div className="flex gap-2 max-w-md">
                   <Input
                     id="newEmail"
@@ -145,12 +626,123 @@ const Settings = () => {
                     onClick={handleEmailChange}
                     disabled={emailChangeLoading || !newEmail}
                   >
-                    {emailChangeLoading ? "Wird geändert..." : "Ändern"}
+                    {emailChangeLoading ? t("common.saving") : t("common.save")}
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Nach der Änderung erhältst du eine Bestätigungs-E-Mail.
+                  {t("settings.profile.emailNote")}
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* PDF-Voreinstellungen */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("settings.pdfSettings.title")}</CardTitle>
+              <CardDescription>
+                {t("settings.pdfSettings.description")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t("settings.pdfSettings.paperFormat")}</Label>
+                <Select value={pdfSettings.paperSize} onValueChange={(value) => setPdfSetting("paperSize", value)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder={t("settings.pdfSettings.paperFormat")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A4">A4</SelectItem>
+                    <SelectItem value="A5">A5</SelectItem>
+                    <SelectItem value="Letter">Letter</SelectItem>
+                    <SelectItem value="Legal">Legal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>{t("settings.pdfSettings.orientation")}</Label>
+                <div className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="radio" 
+                      id="portrait" 
+                      checked={pdfSettings.orientation === "portrait"} 
+                      onChange={() => setPdfSetting("orientation", "portrait")}
+                      className="rounded-full"
+                    />
+                    <Label htmlFor="portrait">{t("settings.pdfSettings.portrait")}</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="radio" 
+                      id="landscape" 
+                      checked={pdfSettings.orientation === "landscape"} 
+                      onChange={() => setPdfSetting("orientation", "landscape")}
+                      className="rounded-full"
+                    />
+                    <Label htmlFor="landscape">{t("settings.pdfSettings.landscape")}</Label>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Ränder</Label>
+                <Select value={pdfSettings.margins} onValueChange={(value) => setPdfSetting("margins", value)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Wähle Randgröße" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Keine</SelectItem>
+                    <SelectItem value="small">Klein</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="large">Groß</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="remove-ads">Werbung entfernen</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Standardmäßig Werbung aus PDF entfernen
+                  </p>
+                </div>
+                <Switch
+                  id="remove-ads"
+                  checked={pdfSettings.removeAds}
+                  onCheckedChange={(checked) => setPdfSetting("removeAds", checked)}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="preserve-links">Interaktive Links</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Links im PDF klickbar machen
+                  </p>
+                </div>
+                <Switch
+                  id="preserve-links"
+                  checked={pdfSettings.preserveLinks}
+                  onCheckedChange={(checked) => setPdfSetting("preserveLinks", checked)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label>Schriftgröße</Label>
+                  <span className="text-sm">{pdfSettings.fontSize}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={75}
+                  max={150}
+                  step={5}
+                  value={pdfSettings.fontSize}
+                  onChange={(e) => setPdfSetting("fontSize", parseInt(e.target.value))}
+                  className="w-full"
+                />
               </div>
             </CardContent>
           </Card>
@@ -176,21 +768,213 @@ const Settings = () => {
               </p>
             </CardContent>
           </Card>
-
-          {/* Darstellung */}
+          
+          {/* Verknüpfte Konten */}
           <Card>
             <CardHeader>
-              <CardTitle>Darstellung</CardTitle>
+              <CardTitle>Verknüpfte Konten</CardTitle>
               <CardDescription>
-                Passe das Erscheinungsbild der Anwendung an
+                Verknüpfe deinen Account mit einem anderen Dienst für einfaches Login
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {linkedAccount ? (
+                // Zeige nur das verknüpfte Konto an
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {linkedAccount === 'google' ? (
+                      <svg viewBox="0 0 24 24" className="h-5 w-5">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                      </svg>
+                    ) : (
+                      <Github className="h-5 w-5" />
+                    )}
+                    <div>
+                      <div className="font-medium">{linkedAccount === 'google' ? 'Google' : 'GitHub'}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Verknüpft
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    onClick={unlinkAccount} 
+                  >
+                    Trennen
+                  </Button>
+                </div>
+              ) : (
+                // Zeige Optionen zum Verknüpfen an, wenn kein Konto verknüpft ist
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Du hast noch kein Konto verknüpft. Wähle einen Dienst zur Verknüpfung:
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => startAccountLinking('google')} 
+                      disabled={accountLinking}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-5 w-5">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                      </svg>
+                      Mit Google verknüpfen
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => startAccountLinking('github')} 
+                      disabled={accountLinking}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      <Github className="h-5 w-5" />
+                      Mit GitHub verknüpfen
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Datenschutz & Daten mit erweiterten Cookie-Einstellungen */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Datenschutz & Daten</CardTitle>
+              <CardDescription>
+                Verwalte deine Daten und Datenschutzeinstellungen
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Cookie-Einstellungen</h3>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Notwendige Cookies</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Unbedingt erforderlich für die Funktionalität der Website
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={true}
+                    disabled={true}
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Präferenz-Cookies</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Speichern deine Einstellungen und Vorlieben
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={privacySettings.cookieSettings.preferences} 
+                    onCheckedChange={(checked) => setCookieSetting("preferences", checked)} 
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Statistik-Cookies</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Helfen uns zu verstehen, wie Besucher mit der Website interagieren
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={privacySettings.cookieSettings.statistics} 
+                    onCheckedChange={(checked) => setCookieSetting("statistics", checked)} 
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Marketing-Cookies</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Werden verwendet, um personalisierte Werbung anzuzeigen
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={privacySettings.cookieSettings.marketing} 
+                    onCheckedChange={(checked) => setCookieSetting("marketing", checked)} 
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-3 pt-2">
+                <h3 className="text-sm font-medium">Datenspeicherung</h3>
+                <div className="space-y-1">
+                  <Label>Wie lange sollen deine Daten gespeichert werden?</Label>
+                  <Select 
+                    value={privacySettings.dataRetention} 
+                    onValueChange={(value) => setDataRetention(value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Datenspeicherungsdauer wählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30days">30 Tage</SelectItem>
+                      <SelectItem value="90days">90 Tage</SelectItem>
+                      <SelectItem value="1year">1 Jahr</SelectItem>
+                      <SelectItem value="forever">Unbegrenzt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Nach Ablauf dieser Zeit werden deine gespeicherten PDFs und der Verlauf gelöscht.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Nutzungsstatistiken</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Anonyme Nutzungsdaten zur Verbesserung des Dienstes teilen
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={privacySettings.shareUsageData} 
+                    onCheckedChange={(checked) => setPrivacySetting("shareUsageData", checked)} 
+                  />
+                </div>
+              </div>
+              
+              <div className="pt-2">
+                <Button 
+                  variant="outline" 
+                  onClick={handleDataExport} 
+                  disabled={exportLoading}
+                >
+                  {exportLoading ? "Wird exportiert..." : "Meine Daten exportieren"}
+                </Button>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Exportiere alle deine Daten, einschließlich PDF-Verlauf und Einstellungen.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Darstellung mit nur 3 Farben */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("settings.appearance.title")}</CardTitle>
+              <CardDescription>
+                {t("settings.appearance.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Dark Mode</Label>
+                  <Label>{t("settings.appearance.darkMode")}</Label>
                   <p className="text-sm text-muted-foreground">
-                    Aktiviere den dunklen Modus für die Anwendung
+                    {t("settings.appearance.darkModeDesc")}
                   </p>
                 </div>
                 <Switch
@@ -200,15 +984,64 @@ const Settings = () => {
                   }
                 />
               </div>
+              
+              <div className="space-y-2 pt-2">
+                <Label>{t("settings.appearance.language")}</Label>
+                <Select value={settings.language} onValueChange={(value) => handleSettingChange("language", value)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder={t("settings.appearance.language")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="de">Deutsch</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t("settings.appearance.languageNote")}
+                </p>
+              </div>
+              
+              <div className="space-y-2 pt-2">
+                <Label>{t("settings.appearance.accentColor")}</Label>
+                <div className="flex gap-4">
+                  {[
+                    { name: "default", color: "#cbd5e1", label: t("settings.appearance.default") },
+                    { name: "blue", color: "#0284c7", label: t("settings.appearance.blue") },
+                    { name: "green", color: "#16a34a", label: t("settings.appearance.green") },
+                    { name: "purple", color: "#9333ea", label: t("settings.appearance.purple") }
+                  ].map(color => (
+                    <div key={color.name} className="flex flex-col items-center gap-2">
+                      <button
+                        className={`w-10 h-10 rounded-full ${
+                          accentColor === color.name ? "ring-2 ring-offset-2 ring-primary" : ""
+                        } relative flex items-center justify-center`}
+                        style={{ backgroundColor: color.color }}
+                        onClick={() => handleSettingChange("accentColor", color.name)}
+                        aria-label={`Akzentfarbe ${color.label}`}
+                      >
+                        {color.name === "default" && (
+                          <svg className="absolute w-6 h-6 text-gray-700" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </button>
+                      <span className="text-xs">{color.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {t("settings.appearance.accentColorDesc")}
+                </p>
+              </div>
             </CardContent>
           </Card>
 
           {/* Gefahrenzone */}
           <Card className="border-destructive">
             <CardHeader>
-              <CardTitle className="text-destructive">Gefahrenzone</CardTitle>
+              <CardTitle className="text-destructive">{t("settings.dangerZone.title")}</CardTitle>
               <CardDescription>
-                Irreversible Aktionen für deinen Account
+                {t("settings.dangerZone.description")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -217,7 +1050,7 @@ const Settings = () => {
                 onClick={() => setDeleteDialogOpen(true)}
                 disabled={isLoading}
               >
-                Account löschen
+                {t("settings.dangerZone.deleteAccount")}
               </Button>
             </CardContent>
           </Card>
@@ -227,19 +1060,18 @@ const Settings = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Account wirklich löschen?</AlertDialogTitle>
+            <AlertDialogTitle>{t("settings.dangerZone.deleteConfirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Diese Aktion kann nicht rückgängig gemacht werden. Dein Account und
-              alle damit verbundenen Daten werden permanent gelöscht.
+              {t("settings.dangerZone.deleteConfirmDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteAccount}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Account löschen
+              {t("common.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,0 +1,116 @@
+{
+  "common": {
+    "settings": "Settings",
+    "profile": "Profile",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "upload": "Upload",
+    "downloading": "Downloading...",
+    "uploading": "Uploading...",
+    "saving": "Saving...",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error"
+  },
+  "header": {
+    "home": "Home",
+    "history": "History",
+    "settings": "Settings",
+    "logout": "Logout",
+    "tagline": "Convert any webpage to a beautifully formatted PDF with customizable options"
+  },
+  "settings": {
+    "profile": {
+      "title": "Profile",
+      "description": "Manage your personal information",
+      "profilePicture": "Profile Picture",
+      "maxFileSize": "Maximum 2MB, Format: JPG, PNG or GIF",
+      "displayName": "Display Name",
+      "currentEmail": "Current Email",
+      "newEmail": "New Email Address",
+      "emailNote": "After changing, you will receive a confirmation email.",
+      "emailError": "Please enter a new email address."
+    },
+    "pdfSettings": {
+      "title": "PDF Preferences",
+      "description": "Default settings for PDF conversions",
+      "paperFormat": "Preferred Paper Format",
+      "orientation": "Preferred Orientation",
+      "portrait": "Portrait",
+      "landscape": "Landscape",
+      "margins": "Margins",
+      "marginNone": "None",
+      "marginSmall": "Small",
+      "marginNormal": "Normal",
+      "marginLarge": "Large",
+      "removeAds": "Remove Ads",
+      "removeAdsDesc": "Remove ads from PDF by default",
+      "preserveLinks": "Interactive Links",
+      "preserveLinksDesc": "Make links in the PDF clickable",
+      "fontSize": "Font Size"
+    },
+    "passwordSecurity": {
+      "title": "Password & Security",
+      "description": "Manage your password and security settings",
+      "resetPassword": "Reset Password",
+      "resetPasswordNote": "You will receive an email with a link to reset your password."
+    },
+    "linkedAccounts": {
+      "title": "Linked Accounts",
+      "description": "Link your account with another service for easy login",
+      "noLinkedAccounts": "You have not linked any accounts yet. Choose a service to link:",
+      "linked": "Linked",
+      "unlink": "Unlink",
+      "linkWithGoogle": "Link with Google",
+      "linkWithGithub": "Link with GitHub",
+      "linkError": "Error linking account",
+      "unlinkError": "Removing account links is currently not supported."
+    },
+    "privacyData": {
+      "title": "Privacy & Data",
+      "description": "Manage your data and privacy settings",
+      "cookieSettings": "Cookie Settings",
+      "necessaryCookies": "Necessary Cookies",
+      "necessaryCookiesDesc": "Essential for the functionality of the website",
+      "preferenceCookies": "Preference Cookies",
+      "preferenceCookiesDesc": "Store your settings and preferences",
+      "statisticsCookies": "Statistics Cookies",
+      "statisticsCookiesDesc": "Help us understand how visitors interact with the website",
+      "marketingCookies": "Marketing Cookies",
+      "marketingCookiesDesc": "Used to display personalized advertisements",
+      "dataRetention": "Data Storage",
+      "dataRetentionQuestion": "How long should your data be stored?",
+      "dataRetentionNote": "After this period, your stored PDFs and history will be deleted.",
+      "30days": "30 Days",
+      "90days": "90 Days",
+      "1year": "1 Year",
+      "forever": "Forever",
+      "usageStats": "Usage Statistics",
+      "usageStatsDesc": "Share anonymous usage data to improve the service",
+      "exportData": "Export My Data",
+      "exportDataNote": "Export all your data, including PDF history and settings."
+    },
+    "appearance": {
+      "title": "Appearance",
+      "description": "Customize the appearance of the application",
+      "darkMode": "Dark Mode",
+      "darkModeDesc": "Enable dark mode for the application",
+      "language": "Language",
+      "languageNote": "This setting changes the language of the entire application.",
+      "accentColor": "Accent Color",
+      "accentColorDesc": "The accent color is used for buttons, links and highlights.",
+      "default": "Default",
+      "blue": "Blue",
+      "green": "Green",
+      "purple": "Purple"
+    },
+    "dangerZone": {
+      "title": "Danger Zone",
+      "description": "Irreversible actions for your account",
+      "deleteAccount": "Delete Account",
+      "deleteConfirmTitle": "Really delete account?",
+      "deleteConfirmDesc": "This action cannot be undone. Your account and all associated data will be permanently deleted."
+    }
+  }
+} 

@@ -13,8 +13,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 216 98% 52%;
-    --primary-foreground: 210 40% 98%;
+    --primary: #0284c7;
+    --primary-foreground: #ffffff;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -30,7 +30,7 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 216 98% 52%;
+    --ring: #0284c7;
 
     --radius: 0.75rem;
 
@@ -42,6 +42,8 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --web2pdf-600: #0284c7;
   }
 
   .dark {
@@ -81,6 +83,8 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --web2pdf-600: #16a34a;
   }
 }
 
@@ -156,4 +160,183 @@
 
 .pdf-preview-dark img {
   filter: brightness(0.9) contrast(1.1);
+}
+
+/* Direkte CSS-Variablen-Anwendungen für Elemente */
+.btn-primary, 
+.button-primary, 
+button[type="submit"], 
+.primary-button {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border-color: var(--primary) !important;
+}
+
+/* Selektor für Elemente, die die primäre Farbe verwenden sollen */
+.ring, 
+.focus-ring:focus, 
+.active-ring:active,
+.border-primary,
+.ring-primary {
+  border-color: var(--ring) !important;
+  box-shadow: 0 0 0 1px var(--ring) !important;
+}
+
+/* Branding-Farbe */
+.web2pdf-branding,
+.logo-color,
+.brand-text,
+.brand-accent {
+  color: var(--web2pdf-600) !important;
+}
+
+.web2pdf-bg,
+.logo-bg,
+.brand-bg {
+  background-color: var(--web2pdf-600) !important;
+}
+
+/* Verbesserte und intensivere Akzentfarben-Anwendung */
+:root.accent-blue {
+  --primary: #0284c7 !important;
+  --primary-foreground: #ffffff !important;
+  --ring: #0284c7 !important;
+  --web2pdf-600: #0284c7 !important;
+  --accent: rgba(2, 132, 199, 0.2) !important;
+  --accent-foreground: #0284c7 !important;
+  --focus-ring: 0 0 0 2px rgba(2, 132, 199, 0.5) !important;
+  --hover-bg: rgba(2, 132, 199, 0.1) !important;
+}
+
+:root.accent-green {
+  --primary: #16a34a !important;
+  --primary-foreground: #ffffff !important;
+  --ring: #16a34a !important;
+  --web2pdf-600: #16a34a !important;
+  --accent: rgba(22, 163, 74, 0.2) !important;
+  --accent-foreground: #16a34a !important;
+  --focus-ring: 0 0 0 2px rgba(22, 163, 74, 0.5) !important;
+  --hover-bg: rgba(22, 163, 74, 0.1) !important;
+}
+
+:root.accent-purple {
+  --primary: #9333ea !important;
+  --primary-foreground: #ffffff !important;
+  --ring: #9333ea !important;
+  --web2pdf-600: #9333ea !important;
+  --accent: rgba(147, 51, 234, 0.2) !important;
+  --accent-foreground: #9333ea !important;
+  --focus-ring: 0 0 0 2px rgba(147, 51, 234, 0.5) !important;
+  --hover-bg: rgba(147, 51, 234, 0.1) !important;
+}
+
+/* Zusätzliche Akzent-Styling für mehr UI-Elemente */
+.accent-blue .web2pdf-header,
+.accent-green .web2pdf-header,
+.accent-purple .web2pdf-header {
+  border-bottom: 3px solid var(--primary) !important;
+}
+
+.accent-blue .nav-link.active,
+.accent-green .nav-link.active,
+.accent-purple .nav-link.active {
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid var(--primary) !important;
+}
+
+.accent-blue a:not(.btn-primary),
+.accent-green a:not(.btn-primary),
+.accent-purple a:not(.btn-primary) {
+  color: var(--primary) !important;
+  text-decoration-color: var(--primary) !important;
+}
+
+.accent-blue .card-highlighted,
+.accent-green .card-highlighted,
+.accent-purple .card-highlighted {
+  border-left: 4px solid var(--primary) !important;
+  box-shadow: 0 0 0 1px var(--primary), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.accent-blue input:focus, 
+.accent-green input:focus, 
+.accent-purple input:focus,
+.accent-blue select:focus, 
+.accent-green select:focus, 
+.accent-purple select:focus,
+.accent-blue textarea:focus, 
+.accent-green textarea:focus, 
+.accent-purple textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: var(--focus-ring) !important;
+}
+
+.accent-blue .tab.active,
+.accent-green .tab.active,
+.accent-purple .tab.active {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  border-bottom: 2px solid var(--primary) !important;
+}
+
+.accent-blue .btn-outline:hover,
+.accent-green .btn-outline:hover,
+.accent-purple .btn-outline:hover {
+  border-color: var(--primary) !important;
+  background-color: var(--hover-bg) !important;
+  color: var(--primary) !important;
+}
+
+/* Spezifische Styling für den Header mit Logo */
+.accent-blue .bg-web2pdf-600,
+.accent-green .bg-web2pdf-600,
+.accent-purple .bg-web2pdf-600 {
+  background-color: var(--primary) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.accent-blue .text-web2pdf-600,
+.accent-green .text-web2pdf-600,
+.accent-purple .text-web2pdf-600 {
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+}
+
+/* Stärker hervorgehobene Buttons */
+.accent-blue .btn-primary,
+.accent-green .btn-primary,
+.accent-purple .btn-primary {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  border: none !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  transform: translateY(0) !important;
+  transition: transform 0.2s, box-shadow 0.2s !important;
+}
+
+.accent-blue .btn-primary:hover,
+.accent-green .btn-primary:hover,
+.accent-purple .btn-primary:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Akzentfarbe für Checkboxen und Radio-Buttons */
+.accent-blue input[type="checkbox"]:checked,
+.accent-green input[type="checkbox"]:checked,
+.accent-purple input[type="checkbox"]:checked,
+.accent-blue input[type="radio"]:checked,
+.accent-green input[type="radio"]:checked,
+.accent-purple input[type="radio"]:checked {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+}
+
+/* Akzentfarbe für Switch-Komponenten */
+.accent-blue [data-state="checked"].switch,
+.accent-green [data-state="checked"].switch,
+.accent-purple [data-state="checked"].switch {
+  background-color: var(--primary) !important;
 }

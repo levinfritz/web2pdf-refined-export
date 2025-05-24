@@ -9,7 +9,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 btn-primary",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
@@ -42,10 +42,25 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+
+    // CSS custom properties für die style-Eigenschaft vorbereiten
+    let style: React.CSSProperties = { ...props.style };
+    
+    // Wenn es ein primary button ist, stelle sicher, dass er die CSS-Variablen verwendet
+    if (variant === 'default') {
+      style = {
+        ...style,
+        backgroundColor: 'var(--primary)',
+        color: 'var(--primary-foreground)',
+        borderColor: 'var(--primary)'
+      } as React.CSSProperties;
+    }
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        style={style}
         {...props}
       />
     )

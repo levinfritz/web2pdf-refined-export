@@ -1,4 +1,3 @@
-
 import React from "react";
 import { FileText, History } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -6,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import ThemeToggle from "./ThemeToggle";
 import UserNav from "./auth/UserNav";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "react-i18next";
 
 const Header: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <header className="w-full py-6">
@@ -29,7 +30,7 @@ const Header: React.FC = () => {
             <Button variant="outline" size="sm" asChild>
               <Link to="/history">
                 <History size={16} className="mr-2" />
-                History
+                {t("header.history")}
               </Link>
             </Button>
           )}
@@ -39,7 +40,7 @@ const Header: React.FC = () => {
       </div>
       
       <p className="text-center mt-2 text-muted-foreground max-w-md mx-auto">
-        Convert any webpage to a beautifully formatted PDF with customizable options
+        {t("header.tagline", "Convert any webpage to a beautifully formatted PDF with customizable options")}
       </p>
     </header>
   );
