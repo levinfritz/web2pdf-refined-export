@@ -15,6 +15,8 @@ export type AuthContextType = {
   login: (email: string, password: string) => Promise<any>;
   signup: (email: string, password: string) => Promise<any>;
   logout: () => Promise<void>;
+  loginWithGoogle: () => Promise<any>;
+  loginWithGitHub: () => Promise<any>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -27,6 +29,40 @@ export const useAuth = () => {
   return context;
 };
 
+// Hilfsfunktion zum Extrahieren des Profilbilds aus verschiedenen Provider-Metadaten
+function extractProfileImage(metadata: any): string | null {
+  if (!metadata) return null;
+  
+  // Debugging: Ausgabe aller Metadaten-Schlüssel
+  console.log('Available metadata keys:', Object.keys(metadata));
+  
+  // Prüfe verschiedene mögliche Schlüssel für das Profilbild
+  // Spezifisch für Google
+  if (metadata.provider_id === 'google' || metadata.provider === 'google') {
+    // Google-spezifische Profilbild-Extraktion
+    console.log('Google provider detected, checking specific fields');
+    if (metadata.picture) console.log('Found picture:', metadata.picture);
+    if (metadata.avatar_url) console.log('Found avatar_url:', metadata.avatar_url);
+    
+    // Bei Google kann das Bild auch in einer sub-property stecken
+    const googleUserInfo = metadata.user_info || metadata.profile || {};
+    if (googleUserInfo.picture) console.log('Found in user_info.picture:', googleUserInfo.picture);
+    
+    return metadata.picture || 
+           metadata.avatar_url || 
+           googleUserInfo.picture ||
+           metadata.profile_picture ||
+           null;
+  }
+  
+  // Allgemeine Extraktion für andere Provider
+  return metadata.avatar_url || 
+         metadata.picture || 
+         metadata.profile_picture || 
+         metadata.image || 
+         null;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,12 +73,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session) {
+          // Verbesserte Benutzerdaten-Extraktion für OAuth-Provider
+          const metadata = session.user.user_metadata || {};
+          const providerId = metadata.provider || '';
+          
+          console.log(`Auth provider: ${providerId}`);
+          console.log('User metadata:', metadata);
+          
           const userData: User = {
             id: session.user.id,
             email: session.user.email || '',
-            displayName: session.user.user_metadata?.name || session.user.email?.split('@')[0] || '',
-            photoURL: session.user.user_metadata?.avatar_url,
+            // Hole den Anzeigenamen aus den Metadaten oder aus den Provider-Daten
+            displayName: 
+              metadata.name || 
+              metadata.full_name || 
+              metadata.user_name ||
+              metadata.preferred_username ||
+              session.user.email?.split('@')[0] || '',
+            // Nutze die Hilfsfunktion für die Profilbild-Extraktion
+            photoURL: extractProfileImage(metadata),
           };
+          
           setUser(userData);
           
           // Show welcome toast only on sign-in events, not on every auth state change
@@ -62,12 +113,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
+        // Verbesserte Benutzerdaten-Extraktion für OAuth-Provider
+        const metadata = data.session.user.user_metadata || {};
+        const providerId = metadata.provider || '';
+        
+        console.log(`Auth provider: ${providerId}`);
+        console.log('User session metadata:', metadata);
+        
         const userData: User = {
           id: data.session.user.id,
           email: data.session.user.email || '',
-          displayName: data.session.user.user_metadata?.name || data.session.user.email?.split('@')[0] || '',
-          photoURL: data.session.user.user_metadata?.avatar_url,
+          // Hole den Anzeigenamen aus den Metadaten oder aus den Provider-Daten
+          displayName: 
+            metadata.name || 
+            metadata.full_name || 
+            metadata.user_name ||
+            metadata.preferred_username ||
+            data.session.user.email?.split('@')[0] || '',
+          // Nutze die Hilfsfunktion für die Profilbild-Extraktion
+          photoURL: extractProfileImage(metadata),
         };
+        
         setUser(userData);
         
         // Show welcome toast on initial load if not shown already
@@ -158,12 +224,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginWithGoogle = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Login mit Google erfolgreich!");
+      return data;
+    } catch (error: any) {
+      toast.error(`Login mit Google fehlgeschlagen: ${error.message}`);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginWithGitHub = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Login mit GitHub erfolgreich!");
+      return data;
+    } catch (error: any) {
+      toast.error(`Login mit GitHub fehlgeschlagen: ${error.message}`);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
     login,
     signup,
     logout,
+    loginWithGoogle,
+    loginWithGitHub,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -16,6 +16,12 @@ export interface PdfSettingsType {
   stylePreset: string;
   includeSubpages: boolean;
   maxSubpages: number;
+  customCss?: string;
+}
+
+export interface AuthCredentials {
+  username: string;
+  password: string;
 }
 
 export interface ConversionResponse {

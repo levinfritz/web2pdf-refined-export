@@ -77,13 +77,30 @@ const Index = () => {
 
   const handleDownload = () => {
     if (pdfUrl) {
+      // Extrahiere den Domainnamen aus der URL für einen besseren Dateinamen
+      let fileName = "web2pdf";
+      try {
+        if (url) {
+          const urlObj = new URL(url);
+          const domain = urlObj.hostname.replace(/^www\./, '');
+          const date = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+          fileName = `${domain}_${date}`;
+        }
+      } catch (error) {
+        console.error("Error creating filename:", error);
+      }
+
       // Erstelle einen Link-Element und simuliere einen Klick für direkten Download
       const link = document.createElement('a');
       link.href = pdfUrl;
-      link.setAttribute('download', `web2pdf_${new Date().getTime()}.pdf`);
+      link.setAttribute('download', `${fileName}.pdf`);
+      link.setAttribute('target', '_blank');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // Öffne das PDF zusätzlich in einem neuen Tab
+      window.open(pdfUrl, '_blank');
     }
   };
 

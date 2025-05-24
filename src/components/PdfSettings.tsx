@@ -235,6 +235,8 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[100px]"
               placeholder="body { font-family: Arial; }"
               disabled={disabled}
+              value={settings.customCss || ''}
+              onChange={(e) => onSettingsChange({ customCss: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
               Benutzerdefinierte CSS-Regeln, die auf die Seite angewendet werden.

@@ -1,34 +1,51 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Github, Loader2 } from "lucide-react";
+import { Github, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const signupSchema = z.object({
-  email: z.string().email("Bitte gib eine gültige E-Mail-Adresse ein"),
-  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen lang sein"),
+  email: z
+    .string()
+    .min(1, { message: "E-Mail ist erforderlich" })
+    .email({ message: "Ungültige E-Mail-Adresse" })
+    .refine((email) => !email.endsWith('@example.com'), {
+      message: "Beispiel-E-Mails sind nicht erlaubt"
+    }),
+  password: z
+    .string()
+    .min(1, { message: "Passwort ist erforderlich" })
+    .min(8, { message: "Passwort muss mindestens 8 Zeichen lang sein" })
+    .regex(/[A-Z]/, { message: "Passwort muss mindestens einen Großbuchstaben enthalten" })
+    .regex(/[0-9]/, { message: "Passwort muss mindestens eine Zahl enthalten" }),
+  confirmPassword: z.string().min(1, { message: "Passwort-Wiederholung ist erforderlich" }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwörter stimmen nicht überein",
+  path: ["confirmPassword"],
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
   const { signup, loginWithGoogle, loginWithGitHub, isLoading } = useAuth();
-  const [socialLoading, setSocialLoading] = React.useState<'google' | 'github' | null>(null);
+  const [socialLoading, setSocialLoading] = useState<'google' | 'github' | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
       email: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
@@ -70,6 +87,8 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
             id="email"
             type="email"
             placeholder="email@beispiel.de"
+            autoComplete="email"
+            aria-invalid={errors.email ? "true" : "false"}
             {...register("email")}
           />
           {errors.email && (
@@ -79,19 +98,63 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
         
         <div className="space-y-2">
           <Label htmlFor="password">Passwort</Label>
-          <Input
-            id="password"
-            type="password"
-            placeholder="••••••••"
-            {...register("password")}
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              aria-invalid={errors.password ? "true" : "false"}
+              {...register("password")}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </Button>
+          </div>
           {errors.password && (
             <p className="text-sm text-destructive">{errors.password.message}</p>
           )}
         </div>
         
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Account wird erstellt..." : "Registrieren"}
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Passwort wiederholen</Label>
+          <div className="relative">
+            <Input
+              id="confirmPassword"
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              aria-invalid={errors.confirmPassword ? "true" : "false"}
+              {...register("confirmPassword")}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </Button>
+          </div>
+          {errors.confirmPassword && (
+            <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
+          )}
+        </div>
+        
+        <Button type="submit" className="w-full" disabled={isLoading || isSubmitting}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Account wird erstellt...
+            </>
+          ) : "Registrieren"}
         </Button>
       </form>
       
