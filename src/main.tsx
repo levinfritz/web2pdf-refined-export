@@ -8,7 +8,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 // Add Content Security Policy meta tag for improved security
 const cspMetaTag = document.createElement('meta');
 cspMetaTag.httpEquiv = 'Content-Security-Policy';
-cspMetaTag.content = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co http://localhost:* https://gbssg.gitlab.io https://*.gitlab.io; frame-src 'self' http://localhost:*;";
+cspMetaTag.content = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co http://localhost:* https://gbssg.gitlab.io https://*.gitlab.io https://* http://*; frame-src 'self' http://localhost:* https://* http://*;";
 document.head.appendChild(cspMetaTag);
 
 // Add X-Content-Type-Options meta tag

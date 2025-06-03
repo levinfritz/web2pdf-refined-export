@@ -54,6 +54,7 @@ const Settings = () => {
   // Verknüpfte Konten Status - Nur ein Konto kann verknüpft sein
   const [linkedAccount, setLinkedAccount] = useState<'google' | 'github' | null>(null);
   const [accountLinking, setAccountLinking] = useState(false);
+  const [useSocialProfilePic, setUseSocialProfilePic] = useState(true);
   
   // App-Einstellungen - Standardsprache ist Englisch
   const [settings, setSettings] = useState({
@@ -110,66 +111,82 @@ const Settings = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        // Lade Benutzer-Metadaten
-        const { data: userData, error } = await supabase.auth.getUser();
+        setIsLoading(true);
         
-        if (error) throw error;
+        // Benutzereinstellungen aus Supabase laden
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
         
-        if (userData?.user?.user_metadata?.app_settings) {
-          // Einstellungen aus den Metadaten laden
-          setSettings(prev => ({ 
-            ...prev, 
-            ...userData.user.user_metadata.app_settings 
-          }));
+        if (!currentUser) {
+          navigate("/login");
+          return;
+        }
+        
+        console.log("User data:", currentUser);
+        
+        // Prüfen, ob der Benutzer verknüpfte Konten hat
+        const { data: { identities } } = await supabase.auth.getUser();
+        
+        if (identities && identities.length > 1) {
+          // Der erste Eintrag ist immer die primäre Anmeldemethode
+          const linkedIdentity = identities.find(id => id.provider !== identities[0].provider);
+          if (linkedIdentity) {
+            setLinkedAccount(linkedIdentity.provider as 'google' | 'github');
+          }
+        }
+        
+        // Benutzereinstellungen aus den Metadaten laden
+        if (currentUser.user_metadata) {
+          const metadata = currentUser.user_metadata;
           
-          // Setze die Sprache direkt
-          if (userData.user.user_metadata.app_settings.language) {
-            i18n.changeLanguage(userData.user.user_metadata.app_settings.language);
+          // Sprache laden
+          if (metadata.language) {
+            setSettings(prev => ({ ...prev, language: metadata.language }));
+            // Sprache sofort anwenden
+            i18n.changeLanguage(metadata.language);
           }
           
-          // Setze die Akzentfarbe direkt, wenn sie in den App-Einstellungen vorhanden ist
-          if (userData.user.user_metadata.app_settings.accentColor) {
-            setAccentColor(userData.user.user_metadata.app_settings.accentColor);
+          // Akzentfarbe laden
+          if (metadata.accentColor) {
+            setSettings(prev => ({ ...prev, accentColor: metadata.accentColor }));
+            setAccentColor(metadata.accentColor);
           }
-        }
-        
-        // Aktualisiere die Anzeige, aber vermeide redundante API-Aufrufe
-        if (settings.accentColor !== accentColor) {
-          setSettings(prev => ({
-            ...prev,
-            accentColor: accentColor
-          }));
-        }
-        
-        if (userData?.user?.user_metadata?.pdf_settings) {
-          setPdfSettings(prev => ({ 
-            ...prev, 
-            ...userData.user.user_metadata.pdf_settings 
-          }));
-        }
-        
-        if (userData?.user?.user_metadata?.privacy_settings) {
-          setPrivacySettings(prev => ({ 
-            ...prev, 
-            ...userData.user.user_metadata.privacy_settings 
-          }));
-        }
-        
-        // Prüfe verknüpfte Konten - nur ein Konto kann verknüpft sein
-        if (userData?.user?.identities) {
-          const hasGoogle = userData.user.identities.some(id => id.provider === 'google');
-          const hasGithub = userData.user.identities.some(id => id.provider === 'github');
           
-          if (hasGoogle) {
-            setLinkedAccount('google');
-          } else if (hasGithub) {
-            setLinkedAccount('github');
-          } else {
-            setLinkedAccount(null);
+          // Dark Mode laden
+          if (metadata.darkMode !== undefined) {
+            setSettings(prev => ({ ...prev, darkMode: metadata.darkMode }));
+          }
+          
+          // Social Profile Picture Einstellung laden
+          if (metadata.useSocialProfilePic !== undefined) {
+            setUseSocialProfilePic(metadata.useSocialProfilePic);
+          }
+          
+          // PDF-Einstellungen laden
+          if (metadata.pdfSettings) {
+            setPdfSettings(prev => ({
+              ...prev,
+              ...metadata.pdfSettings
+            }));
+          }
+          
+          // Datenschutz-Einstellungen laden
+          if (metadata.privacySettings) {
+            setPrivacySettings(prev => ({
+              ...prev,
+              ...metadata.privacySettings,
+              // Stelle sicher, dass die Cookie-Einstellungen richtig geladen werden
+              cookieSettings: {
+                ...prev.cookieSettings,
+                ...(metadata.privacySettings.cookieSettings || {})
+              }
+            }));
           }
         }
       } catch (error) {
-        console.error("Fehler beim Laden der Einstellungen:", error);
+        console.error("Error loading settings:", error);
+        toast.error(t("settings.loadError"));
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -416,13 +433,23 @@ const Settings = () => {
   const startAccountLinking = (provider: 'google' | 'github') => {
     setAccountLinking(true);
     try {
-      // Verknüpfen mit dem ausgewählten Provider
+      // Verknüpfen mit dem ausgewählten Provider und Profilbild übernehmen
       supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/settings`
+          redirectTo: `${window.location.origin}/settings`,
+          queryParams: {
+            // Zusätzliche Parameter für Zugriff auf Profilbild
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
+      
+      // Einstellung speichern, dass Social Profile Bilder verwendet werden sollen
+      if (useSocialProfilePic) {
+        debouncedUpdateUser({ useSocialProfilePic: true });
+      }
     } catch (error) {
       console.error(error);
       toast.error(t("settings.dangerZone.linkError"));
@@ -543,14 +570,14 @@ const Settings = () => {
           {/* Profil-Einstellungen */}
           <Card>
             <CardHeader>
-              <CardTitle>{t("settings.profile.title")}</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-left">{t("settings.profile.title")}</CardTitle>
+              <CardDescription className="text-left">
                 {t("settings.profile.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Profilbild */}
-              <div className="space-y-2">
+              <div className="space-y-2 text-left">
                 <Label>{t("settings.profile.profilePicture")}</Label>
                 <div className="flex items-center gap-4">
                   <Avatar className="h-16 w-16">
@@ -581,10 +608,39 @@ const Settings = () => {
                     )}
                   </div>
                 </div>
+                
+                {/* Social Profile Pictures */}
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2">{t("settings.profile.useSocialProfilePicture")}</p>
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-2"
+                      onClick={() => startAccountLinking('github')}
+                      disabled={accountLinking}
+                    >
+                      <Github className="h-4 w-4" />
+                      GitHub
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-2"
+                      onClick={() => startAccountLinking('google')}
+                      disabled={accountLinking}
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20ZM11 9.44L13.17 11.5L11 13.56V9.44ZM8.81 8.81L15.19 15.19L16.19 14.19L9.81 7.81L8.81 8.81Z" />
+                      </svg>
+                      Google
+                    </Button>
+                  </div>
+                </div>
               </div>
               
               {/* Anzeigename */}
-              <div className="space-y-2 pt-4">
+              <div className="space-y-2 pt-4 text-left">
                 <Label htmlFor="displayName">{t("settings.profile.displayName")}</Label>
                 <div className="flex gap-2 max-w-md">
                   <Input

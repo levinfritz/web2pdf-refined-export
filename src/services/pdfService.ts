@@ -6,6 +6,8 @@ const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 'http://localhost:3000
 // Funktion zum Abrufen des JWT-Tokens vom Supabase
 async function getAuthToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
+  console.log('Supabase Session Data:', data);
+  console.log('Access Token:', data.session?.access_token);
   return data.session?.access_token || null;
 }
 
@@ -122,7 +124,7 @@ export const convertUrlToPdf = async (
         await supabase.from('pdf_history').insert({
           user_id: userId,
           url: url,
-          title: await fetchPageTitle(url),
+          title: url, // Verwende die URL als Titel, da der Titel vom Backend geholt wird
           pdf_url: data.pdfUrl,
         });
       } catch (error) {
@@ -183,19 +185,6 @@ function isValidUrl(url: string): boolean {
     return true;
   } catch {
     return false;
-  }
-}
-
-// Hilfsfunktion zum Abrufen des Seitentitels
-async function fetchPageTitle(url: string): Promise<string> {
-  try {
-    const response = await fetch(url);
-    const html = await response.text();
-    const match = html.match(/<title>(.*?)<\/title>/i);
-    return match ? match[1] : url;
-  } catch (error) {
-    console.error('Error fetching page title:', error);
-    return url;
   }
 }
 

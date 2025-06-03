@@ -28,7 +28,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://stiefelinho.ch'] // Produktions-Domain
-    : ['http://localhost:5173', 'http://127.0.0.1:5173'], // Entwicklungsdomains
+    : ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:8080', 'http://127.0.0.1:8080'], // Entwicklungsdomains
   methods: ['GET', 'POST', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -45,19 +45,24 @@ const apiLimiter = rateLimit({
 // Middleware für JWT-Authentifizierung
 const authenticateJWT = (req, res, next) => {
   const authHeader = req.headers.authorization;
+  console.log('Auth Header:', authHeader);
   
   if (authHeader) {
     const token = authHeader.split(' ')[1];
+    console.log('Extracted Token:', token);
     
     jwt.verify(token, JWT_SECRET, (err, user) => {
       if (err) {
+        console.error('JWT Verification Error:', err);
         return res.status(403).json({ error: 'Token ungültig oder abgelaufen' });
       }
       
+      console.log('Verified User:', user);
       req.user = user;
       next();
     });
   } else {
+    console.log('No Authorization Header');
     res.status(401).json({ error: 'Authentifizierung erforderlich' });
   }
 };
@@ -149,8 +154,12 @@ app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
         '--disable-dev-shm-usage',
         '--disable-accelerated-2d-canvas',
         '--disable-gpu',
-        '--window-size=1280,720'
-      ]
+        '--window-size=1280,720',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process'
+      ],
+      ignoreHTTPSErrors: true,
+      timeout: 60000
     });
     
     // PDF erzeugen
@@ -165,9 +174,9 @@ app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
     
     // Öffentliche URL für den Zugriff auf die PDF mit korrigiertem Host
     let host = req.get('host');
-    // Ersetze localhost durch die tatsächliche IP, wenn nötig
-    if (host.includes('localhost')) {
-      host = '192.168.1.205'; // Server-IP
+    // Verwende immer localhost für die Entwicklung
+    if (process.env.NODE_ENV === 'development') {
+      host = 'localhost:3000';
     }
     const pdfUrl = `${req.protocol}://${host}/output/${pdfName}`;
     
@@ -241,7 +250,13 @@ app.delete('/api/history/clear/:userId', apiLimiter, authenticateJWT, async (req
 // Einfache PDF-Generierung für eine einzelne Seite
 async function generateSinglePagePdf(browser, url, pdfPath, settings) {
   const page = await browser.newPage();
-  await page.goto(url, { waitUntil: 'networkidle2' });
+  
+  // Erhöhe den Timeout auf 60 Sekunden und füge zusätzliche Optionen hinzu
+  await page.goto(url, { 
+    waitUntil: 'networkidle2',
+    timeout: 60000,
+    waitForSelector: 'body'
+  });
   
   // PDF-Optionen basierend auf den Einstellungen konfigurieren
   const pdfOptions = getPdfOptions(settings);
