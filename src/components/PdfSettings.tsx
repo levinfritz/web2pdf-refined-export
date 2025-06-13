@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { PdfSettingsType, PaperSizeType, MarginsType, ThemeType, StylePresetType } from "@/types/pdf-types";
+import { PdfSettingsType, PaperSizeType, MarginsType, ThemeType, StylePresetType, CompressionQualityType } from "@/types/pdf-types";
 
 interface PdfSettingsProps {
   settings: PdfSettingsType;
@@ -225,6 +225,28 @@ const PdfSettings: React.FC<PdfSettingsProps> = ({
             <Label htmlFor="advanced-info">Erweiterte Einstellungen</Label>
             <p className="text-sm text-muted-foreground">
               Diese Einstellungen sind für fortgeschrittene Benutzer.
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Komprimierungsqualität</Label>
+            <Select
+              value={settings.compressionLevel || 'ebook'}
+              onValueChange={(value: string) => onSettingsChange({ compressionLevel: value as CompressionQualityType })}
+              disabled={disabled}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Komprimierungsqualität wählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="screen">Niedrig (kleinste Dateigröße)</SelectItem>
+                <SelectItem value="ebook">Mittel (Standard)</SelectItem>
+                <SelectItem value="printer">Hoch (bessere Qualität)</SelectItem>
+                <SelectItem value="prepress">Sehr hoch (beste Qualität)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Bestimmt die Qualität und Dateigröße des generierten PDFs.
             </p>
           </div>
           

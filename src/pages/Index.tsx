@@ -8,8 +8,8 @@ import Header from "@/components/Header";
 import UrlForm from "@/components/UrlForm";
 import PdfSettings from "@/components/PdfSettings";
 import PdfPreview from "@/components/PdfPreview";
-import { PdfSettingsType } from "@/types/pdf-types";
-import { convertUrlToPdf } from "@/services/pdfService";
+import { PdfSettingsType, PdfMetadataType, PdfMetadataResponse } from "@/types/pdf-types";
+import { convertUrlToPdf, updatePdfMetadata } from "@/services/pdfService";
 import { useAuth } from "@/contexts/AuthContext";
 import AuthDialog from "@/components/auth/AuthDialog";
 
@@ -34,6 +34,15 @@ const Index = () => {
     stylePreset: "default",
     includeSubpages: false,
     maxSubpages: 10,
+    compressionLevel: "ebook", // Standardmäßig mittlere Komprimierung
+  });
+  
+  const [pdfMetadata, setPdfMetadata] = useState<PdfMetadataResponse | null>(null);
+  const [editedMetadata, setEditedMetadata] = useState<PdfMetadataType>({
+    title: "",
+    author: "",
+    subject: "",
+    keywords: []
   });
 
   // Handle URL from route parameters (for re-generation from history)
@@ -58,10 +67,25 @@ const Index = () => {
     
     setUrl(submittedUrl);
     setIsLoading(true);
+    setPdfMetadata(null);
     try {
       const result = await convertUrlToPdf(submittedUrl, settings, user?.id, auth);
       setPdfUrl(result.pdfUrl);
       setPreviewUrl(result.previewUrl);
+      
+      // Metadaten verarbeiten, wenn vorhanden
+      if (result.metadata) {
+        setPdfMetadata(result.metadata);
+        
+        // Initialisiere die bearbeitbaren Metadaten
+        setEditedMetadata({
+          title: result.metadata.title || "",
+          author: user?.email || "",
+          subject: "Webseiten-Export",
+          keywords: [new URL(submittedUrl).hostname.replace(/^www\./, '')]
+        });
+      }
+      
       toast.success("PDF erfolgreich erstellt!");
     } catch (error) {
       console.error("Error converting PDF:", error);
@@ -73,6 +97,33 @@ const Index = () => {
 
   const handleSettingsChange = (newSettings: Partial<PdfSettingsType>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
+  };
+  
+  const handleMetadataChange = (newMetadata: PdfMetadataType) => {
+    setEditedMetadata(newMetadata);
+  };
+  
+  const handleMetadataSave = async () => {
+    if (!pdfUrl || !pdfMetadata) return;
+    
+    try {
+      setIsLoading(true);
+      await updatePdfMetadata(pdfUrl, editedMetadata);
+      toast.success("Metadaten erfolgreich aktualisiert!");
+      
+      // Aktualisiere die Metadaten im State
+      if (pdfMetadata) {
+        setPdfMetadata({
+          ...pdfMetadata,
+          title: editedMetadata.title
+        });
+      }
+    } catch (error) {
+      console.error("Error updating metadata:", error);
+      toast.error("Fehler beim Aktualisieren der Metadaten");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDownload = () => {
@@ -143,6 +194,9 @@ const Index = () => {
                 settings={settings}
                 previewUrl={previewUrl}
                 isLoading={isLoading}
+                metadata={pdfMetadata}
+                onMetadataChange={handleMetadataChange}
+                onMetadataSave={handleMetadataSave}
               />
             </CardContent>
           </Card>

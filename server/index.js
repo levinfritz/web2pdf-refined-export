@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const validator = require('validator');
 const dotenv = require('dotenv');
+const { exec } = require('child_process');
 
 // Lade Umgebungsvariablen
 dotenv.config();
@@ -28,7 +29,7 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://stiefelinho.ch'] // Produktions-Domain
-    : ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:8080', 'http://127.0.0.1:8080'], // Entwicklungsdomains
+    : ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:8080', 'http://127.0.0.1:8080', 'http://192.168.1.159:8080'], // Entwicklungsdomains
   methods: ['GET', 'POST', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -51,6 +52,29 @@ const authenticateJWT = (req, res, next) => {
     const token = authHeader.split(' ')[1];
     console.log('Extracted Token:', token);
     
+    // In development mode, accept Supabase tokens without verification
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('Development mode: Accepting token without verification');
+      try {
+        // Extract user info from token without verification
+        // This is only for development purposes
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+          console.log('Token payload:', payload);
+          req.user = {
+            id: payload.sub || 'dev-user-id',
+            email: payload.email || 'dev@example.com',
+            ...payload
+          };
+          return next();
+        }
+      } catch (error) {
+        console.error('Error parsing token:', error);
+      }
+    }
+    
+    // For production or if token parsing fails, verify with JWT_SECRET
     jwt.verify(token, JWT_SECRET, (err, user) => {
       if (err) {
         console.error('JWT Verification Error:', err);
@@ -68,12 +92,114 @@ const authenticateJWT = (req, res, next) => {
 };
 
 // URL-Validierungsfunktion
-const validateUrl = (url) => {
+function validateUrl(url) {
   return validator.isURL(url, {
     protocols: ['http', 'https'],
     require_protocol: true,
     require_valid_protocol: true
   });
+}
+
+// Funktion zum Hinzufügen von Metadaten zu PDFs
+async function addMetadataToPdf(pdfPath, metadata) {
+  try {
+    console.log(`Adding metadata to PDF: ${pdfPath}`);
+    const pdfBytes = fs.readFileSync(pdfPath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    
+    // Setze Metadaten
+    if (metadata.title) pdfDoc.setTitle(metadata.title);
+    if (metadata.author) pdfDoc.setAuthor(metadata.author);
+    if (metadata.subject) pdfDoc.setSubject(metadata.subject);
+    if (metadata.keywords) pdfDoc.setKeywords(metadata.keywords);
+    pdfDoc.setCreator('Web2PDF+ Tool');
+    pdfDoc.setProducer('Web2PDF Refined Export');
+    
+    const modifiedPdfBytes = await pdfDoc.save();
+    fs.writeFileSync(pdfPath, modifiedPdfBytes);
+    console.log(`Metadata successfully added to PDF: ${pdfPath}`);
+    return true;
+  } catch (error) {
+    console.error(`Error adding metadata to PDF: ${error.message}`);
+    return false;
+  }
+}
+
+// Funktion zur PDF-Komprimierung
+async function compressPdf(inputPath, outputPath, quality = 'screen') {
+  return new Promise((resolve, reject) => {
+    console.log(`Compressing PDF: ${inputPath} with quality: ${quality}`);
+    
+    // Qualitätseinstellungen für die Komprimierung
+    const qualitySettings = {
+      screen: '-dPDFSETTINGS=/screen',     // niedrige Qualität, kleine Dateigröße
+      ebook: '-dPDFSETTINGS=/ebook',       // mittlere Qualität, mittlere Dateigröße
+      printer: '-dPDFSETTINGS=/printer',   // hohe Qualität, große Dateigröße
+      prepress: '-dPDFSETTINGS=/prepress'  // hohe Qualität, große Dateigröße, Farberhaltung
+    };
+    
+    // Verwende Ghostscript zur Komprimierung, falls verfügbar
+    try {
+      exec(`gs -sDEVICE=pdfwrite ${qualitySettings[quality]} -dCompatibilityLevel=1.4 -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputPath}"`, (error) => {
+        if (error) {
+          console.error(`Ghostscript compression error: ${error.message}`);
+          // Fallback: Kopiere die Originaldatei, wenn Ghostscript nicht verfügbar ist
+          fs.copyFileSync(inputPath, outputPath);
+          resolve(false);
+        } else {
+          console.log(`PDF successfully compressed: ${outputPath}`);
+          resolve(true);
+        }
+      });
+    } catch (error) {
+      console.error(`Error during PDF compression: ${error.message}`);
+      // Fallback: Kopiere die Originaldatei bei Fehlern
+      fs.copyFileSync(inputPath, outputPath);
+      resolve(false);
+    }
+  });
+}
+
+// Funktion zur Erkennung von CAPTCHAs
+async function checkForCaptcha(page) {
+  try {
+    console.log('Checking for CAPTCHA presence...');
+    const captchaSelectors = [
+      'iframe[src*="recaptcha"]',
+      'iframe[src*="captcha"]',
+      '.g-recaptcha',
+      '#captcha',
+      '.captcha',
+      'input[name*="captcha"]',
+      'div[class*="captcha"]',
+      'div[id*="captcha"]'
+    ];
+    
+    for (const selector of captchaSelectors) {
+      const captchaElement = await page.$(selector);
+      if (captchaElement) {
+        console.log(`CAPTCHA detected with selector: ${selector}`);
+        return true;
+      }
+    }
+    
+    // Prüfe auch auf bestimmte Texte, die auf CAPTCHAs hinweisen könnten
+    const pageContent = await page.content();
+    const captchaKeywords = ['captcha', 'robot', 'human verification', 'security check', 'prove you\'re human'];
+    
+    for (const keyword of captchaKeywords) {
+      if (pageContent.toLowerCase().includes(keyword.toLowerCase())) {
+        console.log(`CAPTCHA keyword detected: ${keyword}`);
+        return true;
+      }
+    }
+    
+    console.log('No CAPTCHA detected');
+    return false;
+  } catch (error) {
+    console.error(`Error checking for CAPTCHA: ${error.message}`);
+    return false;
+  }
 };
 
 app.use(express.json());
@@ -140,11 +266,6 @@ app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
 
     console.log(`Converting URL: ${url} with settings:`, settings);
 
-    // PDF-Name und -Pfad generieren
-    const pdfId = uuidv4();
-    const pdfName = `${pdfId}.pdf`;
-    const pdfPath = path.join(OUTPUT_DIR, pdfName);
-    
     // Browser starten mit erweiterten Optionen für Ubuntu 24.04
     const browser = await puppeteer.launch({
       headless: 'new',
@@ -162,15 +283,117 @@ app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
       timeout: 60000
     });
     
+    // Extrahiere den Titel der Webseite für einen beschreibenden Dateinamen
+    let pdfName;
+    let pageTitle = '';
+    let domain = '';
+    const page = await browser.newPage();
+    console.log(`Fetching title for URL: ${url}`);
+    
+    try {
+      // Setze einen Timeout für die Navigation
+      await page.setDefaultNavigationTimeout(30000);
+      
+      // Füge User-Agent hinzu, um Blocking zu vermeiden
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36');
+      
+      // Navigiere zur URL und warte auf das Laden
+      await page.goto(url, { 
+        waitUntil: 'networkidle2', 
+        timeout: 30000 
+      });
+      
+      // Prüfe auf CAPTCHA
+      const hasCaptcha = await checkForCaptcha(page);
+      if (hasCaptcha) {
+        console.warn('CAPTCHA detected on the page. PDF generation may be incomplete.');
+      }
+      
+      // Extrahiere den Seitentitel
+      pageTitle = await page.title();
+      console.log(`Extracted page title: "${pageTitle}"`);
+      
+      // Extrahiere die Domain für Metadaten
+      try {
+        domain = new URL(url).hostname;
+      } catch (urlError) {
+        domain = 'unknown-domain';
+      }
+      
+      // Generiere einen sicheren Dateinamen basierend auf dem Titel
+      let safeTitle = pageTitle && pageTitle.trim() !== ''
+        ? pageTitle.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '-').replace(/-+/g, '-').substring(0, 50)
+        : domain.replace(/[^a-zA-Z0-9]/g, '-');
+      
+      // Entferne führende und nachfolgende Bindestriche
+      safeTitle = safeTitle.replace(/^-+|-+$/g, '');
+      
+      // Stelle sicher, dass der Dateiname eindeutig ist mit Timestamp und kurzer ID
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const shortId = uuidv4().split('-')[0];
+      pdfName = `${safeTitle}-${timestamp}-${shortId}.pdf`;
+      console.log(`Generated PDF filename: ${pdfName}`);
+    } catch (error) {
+      console.error(`Error extracting page title: ${error.message}`);
+      // Fallback auf Domain-Namen bei Fehler
+      try {
+        domain = new URL(url).hostname;
+        const timestamp = new Date().toISOString().slice(0, 10);
+        const shortId = uuidv4().split('-')[0];
+        pdfName = `${domain}-${timestamp}-${shortId}.pdf`;
+      } catch (urlError) {
+        // Absoluter Fallback bei URL-Parsing-Fehler
+        const timestamp = new Date().toISOString().slice(0, 10);
+        const shortId = uuidv4();
+        pdfName = `webpage-${timestamp}-${shortId}.pdf`;
+      }
+      console.log(`Using fallback PDF filename: ${pdfName}`);
+    } finally {
+      // Schließe die Seite, die nur für den Titel geöffnet wurde
+      await page.close();
+    }
+    
+    // Erstelle den vollständigen Pfad für die PDF-Datei
+    const pdfPath = path.join(OUTPUT_DIR, pdfName);
+    
+    // Temporärer Pfad für die unkomprimierte PDF
+    const tempPdfPath = path.join(OUTPUT_DIR, `temp-${pdfName}`);
+    
     // PDF erzeugen
     if (settings.includeSubpages) {
-      await generatePdfWithSubpages(browser, url, pdfPath, settings);
+      await generatePdfWithSubpages(browser, url, tempPdfPath, settings);
     } else {
-      await generateSinglePagePdf(browser, url, pdfPath, settings);
+      await generateSinglePagePdf(browser, url, tempPdfPath, settings);
     }
     
     // Browser schließen
     await browser.close();
+    
+    // Füge Metadaten zur PDF hinzu
+    const metadata = {
+      title: pageTitle || `Web2PDF Export - ${domain || 'Unknown Website'}`,
+      author: req.user.email || 'Web2PDF User',
+      subject: `PDF export of ${url}`,
+      keywords: ['web2pdf', 'export', domain, 'pdf']
+    };
+    
+    await addMetadataToPdf(tempPdfPath, metadata);
+    
+    // Komprimiere die PDF mit Ghostscript
+    const compressionQuality = settings.compressionLevel || 'ebook'; // Verwende die Einstellung oder Standardqualität
+    const compressedPdfPath = path.join(OUTPUT_DIR, pdfName);
+    await compressPdf(tempPdfPath, compressedPdfPath, compressionQuality);
+    
+    // Lösche die temporäre unkomprimierte PDF
+    try {
+      if (fs.existsSync(tempPdfPath)) {
+        fs.unlinkSync(tempPdfPath);
+        console.log(`Temporary PDF deleted: ${tempPdfPath}`);
+      }
+    } catch (error) {
+      console.error(`Error deleting temporary PDF: ${error.message}`);
+      // Nicht kritisch, fahre fort
+    }
     
     // Öffentliche URL für den Zugriff auf die PDF mit korrigiertem Host
     let host = req.get('host');
@@ -186,7 +409,13 @@ app.post('/api/convert', apiLimiter, authenticateJWT, async (req, res) => {
     res.json({
       success: true,
       pdfUrl,
-      previewUrl: pdfUrl
+      previewUrl: pdfUrl,
+      metadata: {
+        title: metadata.title,
+        fileSize: fs.statSync(pdfPath).size,
+        compressionLevel: compressionQuality,
+        createdAt: new Date().toISOString()
+      }
     });
   } catch (error) {
     console.error('Fehler bei der PDF-Konvertierung:', error);
@@ -227,14 +456,14 @@ app.delete('/api/history/delete/:id', apiLimiter, authenticateJWT, async (req, r
 app.delete('/api/history/clear/:userId', apiLimiter, authenticateJWT, async (req, res) => {
   try {
     const userId = req.params.userId;
-    
+
     if (userId !== req.user.id) {
       return res.status(403).json({ error: 'Zugriff verweigert: Sie können nur Ihren eigenen Verlauf löschen' });
     }
 
     // In einer echten Anwendung würdest du hier mit einer Supabase-API arbeiten
     console.log(`Lösche gesamten Verlauf für Benutzer ${userId}...`);
-    
+
     // Rückgabe eines Erfolgs, in der realen Anwendung würde hier die Datenbankoperation stattfinden
     res.json({ success: true, message: 'Verlauf erfolgreich gelöscht' });
   } catch (error) {
@@ -247,10 +476,56 @@ app.delete('/api/history/clear/:userId', apiLimiter, authenticateJWT, async (req
   }
 });
 
+// Endpunkt zum Aktualisieren von PDF-Metadaten
+app.post('/api/update-metadata', apiLimiter, authenticateJWT, async (req, res) => {
+  try {
+    const { pdfId, metadata } = req.body;
+
+    if (!pdfId || !metadata) {
+      return res.status(400).json({ error: 'PDF-ID und Metadaten sind erforderlich' });
+    }
+
+    // Überprüfe, ob die PDF existiert
+    const pdfPath = path.join(OUTPUT_DIR, `${pdfId}.pdf`);
+
+    if (!fs.existsSync(pdfPath)) {
+      return res.status(404).json({ error: 'PDF nicht gefunden' });
+    }
+
+    // Validiere die Metadaten
+    const validMetadata = {
+      title: metadata.title || '',
+      author: metadata.author || '',
+      subject: metadata.subject || '',
+      keywords: Array.isArray(metadata.keywords) ? metadata.keywords : []
+    };
+
+    // Aktualisiere die Metadaten in der PDF
+    await addMetadataToPdf(pdfPath, validMetadata);
+
+    res.json({
+      success: true,
+      message: 'Metadaten erfolgreich aktualisiert',
+      metadata: {
+        ...validMetadata,
+        fileSize: fs.statSync(pdfPath).size,
+        updatedAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Fehler beim Aktualisieren der Metadaten:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update metadata',
+      details: error.message
+    });
+  }
+});
+
 // Einfache PDF-Generierung für eine einzelne Seite
 async function generateSinglePagePdf(browser, url, pdfPath, settings) {
   const page = await browser.newPage();
-  
+
   // Erhöhe den Timeout auf 60 Sekunden und füge zusätzliche Optionen hinzu
   await page.goto(url, { 
     waitUntil: 'networkidle2',

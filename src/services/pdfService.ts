@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { PdfSettingsType, ConversionResponse, AuthCredentials } from "@/types/pdf-types";
+import { PdfSettingsType, ConversionResponse, AuthCredentials, PdfMetadataType } from "@/types/pdf-types";
 
 const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 'http://localhost:3000';
 
@@ -137,6 +137,7 @@ export const convertUrlToPdf = async (
       success: true,
       pdfUrl: data.pdfUrl,
       previewUrl: data.previewUrl || data.pdfUrl,
+      metadata: data.metadata
     };
   } catch (error) {
     console.error('Error converting PDF:', error);
@@ -192,3 +193,69 @@ function isValidUrl(url: string): boolean {
 // 1. POST /api/convert - to submit a URL and settings for conversion
 // 2. GET /api/status/:jobId - to check conversion status
 // 3. GET /api/download/:jobId - to download the generated PDF
+
+// Funktion zum Aktualisieren der PDF-Metadaten
+export const updatePdfMetadata = async (
+  pdfUrl: string,
+  metadata: PdfMetadataType
+): Promise<boolean> => {
+  try {
+    // Hole JWT-Token von Supabase
+    const token = await getAuthToken();
+    
+    if (!token) {
+      throw new AuthenticationError();
+    }
+
+    // Entferne Schrägstriche am Anfang von API_ENDPOINT, falls vorhanden
+    const endpoint = API_ENDPOINT.replace(/\/+$/, '');
+    
+    // API-Pfad für Metadaten-Update
+    const apiUrl = endpoint.includes('/api') 
+                  ? `${endpoint}/update-metadata` 
+                  : `${endpoint}/api/update-metadata`;
+
+    console.log('Verwende Metadaten-Update-Endpunkt:', apiUrl);
+    
+    // Extrahiere die PDF-ID aus der URL
+    const pdfId = pdfUrl.split('/').pop()?.split('.')[0];
+    
+    if (!pdfId) {
+      throw new ValidationError('Ungültige PDF-URL');
+    }
+    
+    // Sende Anfrage an den Backend-Service mit JWT-Token
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        pdfId,
+        metadata
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new PdfConversionError(errorData.error || 'Metadaten-Aktualisierung fehlgeschlagen', response.status);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error updating PDF metadata:', error);
+    
+    // Gib den spezifischen Fehler weiter
+    if (error instanceof AuthenticationError || 
+        error instanceof ValidationError || 
+        error instanceof PdfConversionError) {
+      throw error;
+    }
+    
+    // Allgemeine Fehler
+    throw new PdfConversionError(
+      error instanceof Error ? error.message : 'Unbekannter Fehler bei der Metadaten-Aktualisierung'
+    );
+  }
+};

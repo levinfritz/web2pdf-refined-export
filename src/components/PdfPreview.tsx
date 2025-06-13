@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PaperSizeType, PdfSettingsType } from "@/types/pdf-types";
+import { PaperSizeType, PdfSettingsType, PdfMetadataResponse, PdfMetadataType } from "@/types/pdf-types";
 import { cn } from "@/lib/utils";
-import { Moon, Sun, Wrench, XIcon } from "lucide-react";
+import { FileText, Moon, Sun, Wrench, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { 
@@ -12,12 +12,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import PdfMetadataEditor from "@/components/PdfMetadataEditor";
 
 interface PdfPreviewProps {
   url: string | null;
   settings: PdfSettingsType;
   previewUrl?: string | null;
   isLoading: boolean;
+  metadata?: PdfMetadataResponse;
+  onMetadataChange?: (metadata: PdfMetadataType) => void;
+  onMetadataSave?: () => void;
 }
 
 const PdfPreview: React.FC<PdfPreviewProps> = ({
@@ -25,9 +29,13 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
   settings,
   previewUrl,
   isLoading,
+  metadata,
+  onMetadataChange,
+  onMetadataSave,
 }) => {
   const [darkPreview, setDarkPreview] = useState(false);
   const [pageBreakVisible, setPageBreakVisible] = useState(false);
+  const [metadataVisible, setMetadataVisible] = useState(false);
   const { theme } = useTheme?.() || { theme: 'light' };
   
   // Calculate aspect ratio based on paper size and orientation
@@ -83,6 +91,26 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            
+            {metadata && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-8 w-8" 
+                      onClick={() => setMetadataVisible(!metadataVisible)}
+                    >
+                      <FileText size={14} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>PDF Metadaten bearbeiten</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         )}
       
@@ -126,14 +154,19 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
               </div>
             </div>
           ) : previewUrl ? (
-            <iframe 
-              src={previewUrl}
-              className={cn(
-                "w-full h-full border-0",
-                darkPreview && "pdf-preview-iframe-dark"
-              )}
-              title="PDF Preview"
-            />
+            <div className="w-full h-full relative">
+              <iframe 
+                src={previewUrl}
+                className={cn(
+                  "w-full h-full border-0",
+                  darkPreview ? "pdf-preview-iframe-dark" : ""
+                )}
+                title="PDF Preview"
+                style={{
+                  filter: darkPreview ? "invert(1) hue-rotate(180deg)" : "none"
+                }}
+              />
+            </div>
           ) : (
             <div className="w-full h-full p-6">
               <div className="space-y-4">
@@ -145,12 +178,6 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-4/5" />
-                <div className="py-2"></div>
-                <Skeleton className="h-32 w-full" />
-                <div className="py-2"></div>
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
               </div>
             </div>
           )}
@@ -176,6 +203,16 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({
             <p className="text-xs text-muted-foreground mt-2">
               These controls affect how content flows across pages in the PDF.
             </p>
+          </div>
+        )}
+        
+        {metadataVisible && metadata && url && !isLoading && onMetadataChange && onMetadataSave && (
+          <div className="metadata-editor mt-4">
+            <PdfMetadataEditor
+              metadata={metadata}
+              onMetadataChange={onMetadataChange}
+              onSave={onMetadataSave}
+            />
           </div>
         )}
       </div>
