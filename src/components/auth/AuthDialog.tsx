@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import LoginForm from "./LoginForm";
 import SignupForm from "./SignupForm";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface AuthDialogProps {
   open: boolean;
@@ -33,8 +34,8 @@ const AuthDialog: React.FC<AuthDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[425px] animate-in fade-in-50 zoom-in-95 duration-300">
+        <DialogHeader className="animate-in slide-in-from-top duration-300">
           <DialogTitle className="text-center">
             {view === "login" ? "Welcome Back" : "Join Web2PDF+"}
           </DialogTitle>
@@ -45,11 +46,21 @@ const AuthDialog: React.FC<AuthDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
         
-        {view === "login" ? (
-          <LoginForm onToggle={toggleView} />
-        ) : (
-          <SignupForm onToggle={toggleView} />
-        )}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={view}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            {view === "login" ? (
+              <LoginForm onToggle={toggleView} />
+            ) : (
+              <SignupForm onToggle={toggleView} />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </DialogContent>
     </Dialog>
   );

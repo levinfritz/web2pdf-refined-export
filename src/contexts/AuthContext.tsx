@@ -17,6 +17,7 @@ export type AuthContextType = {
   logout: () => Promise<void>;
   loginWithGoogle: () => Promise<any>;
   loginWithGitHub: () => Promise<any>;
+  resetPassword: (email: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -261,6 +262,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }
   };
+  
+  const resetPassword = async (email: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password',
+      });
+      
+      if (error) throw error;
+      
+      toast.success("E-Mail zum Zurücksetzen des Passworts wurde gesendet!");
+    } catch (error: any) {
+      toast.error(`Passwort-Reset fehlgeschlagen: ${error.message}`);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const value: AuthContextType = {
     user,
@@ -270,6 +289,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     loginWithGoogle,
     loginWithGitHub,
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Github, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { motion } from "framer-motion";
 
 const signupSchema = z.object({
   email: z
@@ -71,16 +72,45 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
     }
   };
 
+  // Animation variants für staggered animations
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring" as const,
+        stiffness: 300,
+        damping: 24
+      }
+    }
+  };
+
   return (
-    <div className="space-y-6 w-full">
-      <div className="text-center">
+    <motion.div 
+      className="space-y-6 w-full"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div className="text-center" variants={itemVariants}>
         <h2 className="text-2xl font-bold">Account erstellen</h2>
         <p className="text-muted-foreground mt-2">
           Registriere dich, um deine PDFs zu speichern und zu verwalten
         </p>
-      </div>
+      </motion.div>
       
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <motion.form onSubmit={handleSubmit(onSubmit)} className="space-y-4" variants={itemVariants}>
         <div className="space-y-2">
           <Label htmlFor="email">E-Mail</Label>
           <Input
@@ -89,6 +119,7 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
             placeholder="email@beispiel.de"
             autoComplete="email"
             aria-invalid={errors.email ? "true" : "false"}
+            className="transition-all duration-300 focus:scale-[1.01] focus:shadow-md"
             {...register("email")}
           />
           {errors.email && (
@@ -105,6 +136,7 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
               placeholder="••••••••"
               autoComplete="new-password"
               aria-invalid={errors.password ? "true" : "false"}
+              className="transition-all duration-300 focus:scale-[1.01] focus:shadow-md"
               {...register("password")}
             />
             <Button
@@ -131,6 +163,7 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
               placeholder="••••••••"
               autoComplete="new-password"
               aria-invalid={errors.confirmPassword ? "true" : "false"}
+              className="transition-all duration-300 focus:scale-[1.01] focus:shadow-md"
               {...register("confirmPassword")}
             />
             <Button
@@ -148,32 +181,38 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
           )}
         </div>
         
-        <Button type="submit" className="w-full" disabled={isLoading || isSubmitting}>
+        <Button 
+          type="submit" 
+          className="w-full transition-all duration-300 hover:shadow-md group" 
+          disabled={isLoading || isSubmitting}
+        >
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Account wird erstellt...
             </>
-          ) : "Registrieren"}
+          ) : (
+            <span className="transition-transform group-hover:translate-y-[-1px]">Registrieren</span>
+          )}
         </Button>
-      </form>
+      </motion.form>
       
-      <div className="relative">
+      <motion.div className="relative" variants={itemVariants}>
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
           <span className="bg-background px-2 text-muted-foreground">Oder fortfahren mit</span>
         </div>
-      </div>
+      </motion.div>
       
-      <div className="grid grid-cols-2 gap-4">
+      <motion.div className="grid grid-cols-2 gap-4" variants={itemVariants}>
         <Button 
           variant="outline" 
           type="button" 
           onClick={handleGoogleLogin} 
           disabled={isLoading || socialLoading !== null}
-          className="relative"
+          className="relative transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
         >
           {socialLoading === 'google' ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -204,7 +243,7 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
           type="button" 
           onClick={handleGithubLogin} 
           disabled={isLoading || socialLoading !== null}
-          className="relative"
+          className="relative transition-all duration-300 hover:scale-[1.02] hover:shadow-md"
         >
           {socialLoading === 'github' ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -213,15 +252,19 @@ const SignupForm: React.FC<{ onToggle: () => void }> = ({ onToggle }) => {
           )}
           GitHub
         </Button>
-      </div>
+      </motion.div>
       
-      <div className="text-center text-sm">
+      <motion.div className="text-center text-sm" variants={itemVariants}>
         <span className="text-muted-foreground">Bereits einen Account? </span>
-        <Button variant="link" className="p-0 h-auto" onClick={onToggle}>
+        <Button 
+          variant="link" 
+          className="p-0 h-auto transition-colors duration-300 hover:text-primary/70" 
+          onClick={onToggle}
+        >
           Anmelden
         </Button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

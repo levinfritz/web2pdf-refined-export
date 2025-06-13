@@ -58,10 +58,18 @@ const Index = () => {
     }
   }, [location.search, user]);
 
+  // Animierte Toast-Funktion
+  const showAnimatedToast = (message: string, type: 'success' | 'error' | 'info') => {
+    toast[type](message, {
+      className: "animate-in slide-in-from-top-full duration-300",
+      duration: 3000,
+    });
+  };
+
   const handleUrlSubmit = async (submittedUrl: string, auth?: { username: string; password: string }) => {
     if (!user) {
       setAuthDialogOpen(true);
-      toast.info("Bitte melde dich an oder erstelle einen Account, um PDFs zu generieren");
+      showAnimatedToast("Bitte melde dich an oder erstelle einen Account, um PDFs zu generieren", "info");
       return;
     }
     
@@ -86,10 +94,10 @@ const Index = () => {
         });
       }
       
-      toast.success("PDF erfolgreich erstellt!");
+      showAnimatedToast("PDF erfolgreich erstellt!", "success");
     } catch (error) {
       console.error("Error converting PDF:", error);
-      toast.error("Fehler bei der PDF-Erstellung");
+      showAnimatedToast("Fehler bei der PDF-Erstellung", "error");
     } finally {
       setIsLoading(false);
     }
@@ -109,7 +117,7 @@ const Index = () => {
     try {
       setIsLoading(true);
       await updatePdfMetadata(pdfUrl, editedMetadata);
-      toast.success("Metadaten erfolgreich aktualisiert!");
+      showAnimatedToast("Metadaten erfolgreich aktualisiert!", "success");
       
       // Aktualisiere die Metadaten im State
       if (pdfMetadata) {
@@ -120,7 +128,7 @@ const Index = () => {
       }
     } catch (error) {
       console.error("Error updating metadata:", error);
-      toast.error("Fehler beim Aktualisieren der Metadaten");
+      showAnimatedToast("Fehler beim Aktualisieren der Metadaten", "error");
     } finally {
       setIsLoading(false);
     }
@@ -156,18 +164,18 @@ const Index = () => {
   };
 
   return (
-    <div className="container max-w-6xl px-4 pb-16">
+    <div className="container max-w-6xl px-4 pb-16 animate-in fade-in duration-500">
       <Header />
       
       <main className="py-4 md:py-8">
-        <Card className="glass-card conversion-card mb-4 md:mb-8 overflow-hidden">
+        <Card className="glass-card conversion-card mb-4 md:mb-8 overflow-hidden animate-in slide-in-from-top duration-300">
           <CardContent className="p-4 md:p-6">
             <UrlForm onUrlSubmit={handleUrlSubmit} isLoading={isLoading} />
           </CardContent>
         </Card>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          <Card className="glass-card md:col-span-1 order-2 md:order-1">
+          <Card className="glass-card md:col-span-1 order-2 md:order-1 animate-in slide-in-from-left duration-500 delay-150">
             <CardContent className="p-4 md:p-6">
               <h2 className="text-lg font-medium mb-4">PDF Settings</h2>
               <PdfSettings 
@@ -178,13 +186,13 @@ const Index = () => {
             </CardContent>
           </Card>
           
-          <Card className="glass-card md:col-span-2 order-1 md:order-2">
+          <Card className="glass-card md:col-span-2 order-1 md:order-2 animate-in slide-in-from-right duration-500 delay-150">
             <CardContent className="p-4 md:p-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
                 <h2 className="text-lg font-medium mb-2 sm:mb-0">Preview</h2>
                 {pdfUrl && (
-                  <Button onClick={handleDownload} className="gap-2 w-full sm:w-auto">
-                    <Download size={16} />
+                  <Button onClick={handleDownload} className="gap-2 w-full sm:w-auto transition-all duration-300 hover:bg-primary/90 hover:shadow-lg">
+                    <Download size={16} className="transition-all group-hover:translate-y-[1px]" />
                     <span>Download PDF</span>
                   </Button>
                 )}

@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { PdfMetadataResponse, PdfMetadataType } from "@/types/pdf-types";
 import { Badge } from "@/components/ui/badge";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes, cn } from "@/lib/utils";
+import { Save, Plus, X } from "lucide-react";
 
 interface PdfMetadataEditorProps {
   metadata: PdfMetadataResponse;
@@ -58,14 +59,14 @@ const PdfMetadataEditor: React.FC<PdfMetadataEditorProps> = ({
   }, [editedMetadata, onMetadataChange]);
   
   return (
-    <Card>
-      <CardHeader>
+    <Card className="animate-in fade-in duration-300">
+      <CardHeader className="animate-in slide-in-from-top duration-300">
         <CardTitle>PDF Metadaten</CardTitle>
         <CardDescription>
           Bearbeiten Sie die Metadaten für Ihr PDF-Dokument
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 animate-in slide-in-from-top duration-300 delay-100">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="space-y-1 mb-4">
@@ -76,6 +77,7 @@ const PdfMetadataEditor: React.FC<PdfMetadataEditorProps> = ({
                 onChange={(e) => handleInputChange("title", e.target.value)}
                 placeholder="PDF Titel"
                 disabled={disabled}
+                className="transition-all duration-300 focus:scale-[1.01] focus:shadow-md"
               />
             </div>
             
@@ -87,6 +89,7 @@ const PdfMetadataEditor: React.FC<PdfMetadataEditorProps> = ({
                 onChange={(e) => handleInputChange("author", e.target.value)}
                 placeholder="Autor des Dokuments"
                 disabled={disabled}
+                className="transition-all duration-300 focus:scale-[1.01] focus:shadow-md"
               />
             </div>
           </div>
@@ -100,6 +103,7 @@ const PdfMetadataEditor: React.FC<PdfMetadataEditorProps> = ({
                 onChange={(e) => handleInputChange("subject", e.target.value)}
                 placeholder="Betreff des Dokuments"
                 disabled={disabled}
+                className="transition-all duration-300 focus:scale-[1.01] focus:shadow-md"
               />
             </div>
             
@@ -112,6 +116,7 @@ const PdfMetadataEditor: React.FC<PdfMetadataEditorProps> = ({
                   onChange={(e) => setKeywordsInput(e.target.value)}
                   placeholder="Schlüsselwort hinzufügen"
                   disabled={disabled}
+                  className="transition-all duration-300 focus:scale-[1.01] focus:shadow-md"
                   onKeyPress={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -124,8 +129,9 @@ const PdfMetadataEditor: React.FC<PdfMetadataEditorProps> = ({
                   onClick={handleAddKeyword}
                   disabled={disabled || !keywordsInput.trim()}
                   variant="secondary"
+                  className="transition-all duration-300 hover:scale-105 hover:shadow-md"
                 >
-                  +
+                  <Plus size={16} className="transition-transform group-hover:scale-110" />
                 </Button>
               </div>
             </div>
@@ -135,15 +141,19 @@ const PdfMetadataEditor: React.FC<PdfMetadataEditorProps> = ({
         {editedMetadata.keywords.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
             {editedMetadata.keywords.map((keyword, index) => (
-              <Badge key={index} variant="secondary" className="flex items-center gap-1">
+              <Badge 
+                key={index} 
+                variant="secondary" 
+                className="flex items-center gap-1 animate-in fade-in zoom-in duration-300"
+              >
                 {keyword}
                 <button
                   type="button"
                   onClick={() => handleRemoveKeyword(index)}
-                  className="ml-1 text-xs hover:text-destructive"
+                  className="ml-1 text-xs hover:text-destructive transition-colors duration-200"
                   disabled={disabled}
                 >
-                  ✕
+                  <X size={12} className="transition-transform hover:scale-110" />
                 </button>
               </Badge>
             ))}
@@ -167,9 +177,10 @@ const PdfMetadataEditor: React.FC<PdfMetadataEditorProps> = ({
         <Button 
           onClick={onSave} 
           disabled={disabled}
-          className="w-full mt-4"
+          className="w-full mt-4 transition-all duration-300 hover:shadow-lg group"
         >
-          Metadaten speichern
+          <Save size={16} className="mr-2 transition-transform group-hover:translate-y-[-1px]" />
+          <span>Metadaten speichern</span>
         </Button>
       </CardContent>
     </Card>
