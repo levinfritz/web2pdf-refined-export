@@ -39,7 +39,7 @@ const Settings = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { t } = useTranslation(); // Hook für Übersetzungen
-  const { accentColor, setAccentColor } = useTheme();
+  const { accentColor, setAccentColor, theme, setTheme } = useTheme();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [emailChangeLoading, setEmailChangeLoading] = useState(false);
@@ -48,21 +48,23 @@ const Settings = () => {
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [displayNameLoading, setDisplayNameLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
-  
+  const [exportProgress, setExportProgress] = useState(0);
+
   // Verknüpfte Konten Status - Nur ein Konto kann verknüpft sein
-  const [linkedAccount, setLinkedAccount] = useState<'google' | 'github' | null>(null);
+  const [linkedAccount, setLinkedAccount] = useState<string | null>(null);
   const [accountLinking, setAccountLinking] = useState(false);
   const [useSocialProfilePic, setUseSocialProfilePic] = useState(true);
-  
+
   // App-Einstellungen - Standardsprache ist Englisch
   const [settings, setSettings] = useState({
     darkMode: false,
     language: "en", // Standardmäßig Englisch
     accentColor: "blue" // Nur 3 Farben: blue, green, purple
   });
-  
+
   // PDF-Voreinstellungen
   const [pdfSettings, setPdfSettings] = useState({
     paperSize: "A4" as PaperSizeType,
@@ -72,7 +74,7 @@ const Settings = () => {
     fontSize: 100,
     margins: "normal"
   });
-  
+
   // Datenschutz-Einstellungen mit erweiterten Cookie-Optionen
   const [privacySettings, setPrivacySettings] = useState({
     shareUsageData: true,
@@ -84,16 +86,16 @@ const Settings = () => {
     },
     dataRetention: "30days" // Optionen: "30days", "90days", "1year", "forever"
   });
-  
+
   // Debounce Funktionalität für API-Aufrufe
   const updateTimeout = useRef<NodeJS.Timeout | null>(null);
-  
+
   const debouncedUpdateUser = (data: any) => {
     // Löschen Sie alle vorherigen ausstehenden Aufrufe
     if (updateTimeout.current) {
       clearTimeout(updateTimeout.current);
     }
-    
+
     // Setzen Sie einen neuen Timeout für den Aufruf (500ms Verzögerung)
     updateTimeout.current = setTimeout(async () => {
       try {
@@ -106,61 +108,82 @@ const Settings = () => {
       }
     }, 500);
   };
-  
+
+  // E-Mail-Validierungsfunktion
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+  };
+
   // Initialisiere Einstellungen aus lokalem Speicher oder Datenbank
   useEffect(() => {
     const loadSettings = async () => {
       try {
         setIsLoading(true);
-        
+
         // Benutzereinstellungen aus Supabase laden
         const { data: { user: currentUser } } = await supabase.auth.getUser();
-        
+
         if (!currentUser) {
           navigate("/login");
           return;
         }
-        
+
         console.log("User data:", currentUser);
-        
+
         // Prüfen, ob der Benutzer verknüpfte Konten hat
-        const { data: { identities } } = await supabase.auth.getUser();
-        
-        if (identities && identities.length > 1) {
-          // Der erste Eintrag ist immer die primäre Anmeldemethode
-          const linkedIdentity = identities.find(id => id.provider !== identities[0].provider);
-          if (linkedIdentity) {
-            setLinkedAccount(linkedIdentity.provider as 'google' | 'github');
+        const checkLinkedAccounts = async () => {
+          if (user) {
+            try {
+              const { data } = await supabase.auth.getUser();
+              const identities = data?.user?.identities || [];
+              
+              const hasGithub = identities.some(identity => identity.provider === 'github');
+              const hasGoogle = identities.some(identity => identity.provider === 'google');
+              
+              if (hasGithub) {
+                setLinkedAccount('github');
+              } else if (hasGoogle) {
+                setLinkedAccount('google');
+              } else {
+                setLinkedAccount(null);
+              }
+            } catch (error) {
+              console.error("Fehler beim Abrufen der verknüpften Konten:", error);
+              setLinkedAccount(null);
+            }
           }
-        }
+        };
         
+        checkLinkedAccounts();
+
         // Benutzereinstellungen aus den Metadaten laden
         if (currentUser.user_metadata) {
           const metadata = currentUser.user_metadata;
-          
+
           // Sprache laden
           if (metadata.language) {
             setSettings(prev => ({ ...prev, language: metadata.language }));
             // Sprache sofort anwenden
             i18n.changeLanguage(metadata.language);
           }
-          
+
           // Akzentfarbe laden
           if (metadata.accentColor) {
             setSettings(prev => ({ ...prev, accentColor: metadata.accentColor }));
             setAccentColor(metadata.accentColor);
           }
-          
+
           // Dark Mode laden
           if (metadata.darkMode !== undefined) {
             setSettings(prev => ({ ...prev, darkMode: metadata.darkMode }));
           }
-          
+
           // Social Profile Picture Einstellung laden
           if (metadata.useSocialProfilePic !== undefined) {
             setUseSocialProfilePic(metadata.useSocialProfilePic);
           }
-          
+
           // PDF-Einstellungen laden
           if (metadata.pdfSettings) {
             setPdfSettings(prev => ({
@@ -168,7 +191,7 @@ const Settings = () => {
               ...metadata.pdfSettings
             }));
           }
-          
+
           // Datenschutz-Einstellungen laden
           if (metadata.privacySettings) {
             setPrivacySettings(prev => ({
@@ -189,13 +212,64 @@ const Settings = () => {
         setIsLoading(false);
       }
     };
-    
+
     if (user) {
       loadSettings();
     }
   }, [user]);
 
   // Füge einen separaten Effect hinzu, um die Synchronisierung der UI zu verbessern
+  useEffect(() => {
+    // Lade globales CSS für Animationen
+    const style = document.createElement('style');
+    style.textContent = `
+      /* Sanfte Übergänge für Theme-Wechsel */
+      body {
+        transition: background-color 0.3s ease, color 0.3s ease;
+      }
+      
+      .card {
+        transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      }
+      
+      .theme-transition {
+        transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+      }
+      
+      .theme-transition * {
+        transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+      }
+      
+      /* Sanfte Animation für Farbwechsel */
+      .color-transition {
+        transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+      }
+      
+      .color-transition * {
+        transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+      }
+      
+      /* Sanfte Animation für Buttons */
+      button {
+        transition: transform 0.1s ease, opacity 0.2s ease, background-color 0.2s ease;
+      }
+      
+      button:active:not(:disabled) {
+        transform: scale(0.98);
+      }
+      
+      /* Verbesserte Übergänge für Akzentfarben */
+      :root {
+        transition: --primary 0.3s ease, --primary-foreground 0.3s ease;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   useEffect(() => {
     // Stelle sicher, dass die UI-Anzeige mit dem ThemeContext übereinstimmt
     setSettings(prev => ({
@@ -224,11 +298,11 @@ const Settings = () => {
       console.log(`Setting ${key} already has value ${value}`);
       return;
     }
-    
+
     // Aktualisiere zuerst den lokalen State
     const updatedSettings = { ...settings, [key]: value };
     setSettings(updatedSettings);
-    
+
     // Wenn die Sprache geändert wurde, wechsle die Sprache direkt
     if (key === "language") {
       i18n.changeLanguage(value);
@@ -236,30 +310,54 @@ const Settings = () => {
 
     // Wenn die Akzentfarbe geändert wurde, setze sie im ThemeContext
     if (key === "accentColor") {
+      // Füge eine sanfte Übergangsanimation für Akzentfarbe hinzu
+      document.documentElement.classList.add('color-transition');
       setAccentColor(value);
-      // Der ThemeContext kümmert sich um die Speicherung - wir müssen das nicht doppelt tun
+      
+      // Zeige Lade-Indikator für Akzentfarbe
+      toast.success(
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {t("settings.appearance.updatingTheme") || "Theme wird aktualisiert..."}
+        </div>,
+        { duration: 1000 }
+      );
+      
+      // Entferne die Übergangsklasse nach der Animation
+      setTimeout(() => {
+        document.documentElement.classList.remove('color-transition');
+      }, 1000);
+      
       return;
     }
-    
+
     try {
       // Lade aktuelle Metadaten, um nur die geänderten Werte zu aktualisieren
       const { data: userData } = await supabase.auth.getUser();
       const currentMetadata = userData?.user?.user_metadata || {};
-      const currentAppSettings = currentMetadata.app_settings || {};
-      
+
       // Sonderbehandlung für Farbthemen und Dark Mode
       let metadata: Record<string, any> = {
         app_settings: {
-          ...currentAppSettings,
+          ...currentMetadata.app_settings,
           [key]: value
         }
       };
-      
+
       // Speichere die Farbeinstellung und den Dark Mode als separate Strings (nicht als Objekt)
       if (key === 'darkMode') {
-        metadata.theme_preference = value ? 'dark' : 'light'; // String-Wert für Dark Mode
+        // Füge eine sanfte Übergangsanimation hinzu
+        document.documentElement.classList.add('theme-transition');
+        
+        // Setze das Theme entsprechend des Dark Mode Wertes
+        setTheme(value ? 'dark' : 'light');
+        
+        // Entferne die Übergangsklasse nach der Animation
+        setTimeout(() => {
+          document.documentElement.classList.remove('theme-transition');
+        }, 1000);
       }
-      
+
       // Verwende den debounced Update statt eines direkten Aufrufs
       debouncedUpdateUser(metadata);
     } catch (error) {
@@ -267,18 +365,18 @@ const Settings = () => {
       toast.error(t("common.error"));
     }
   };
-  
+
   const setPdfSetting = async (key: string, value: any) => {
     const updatedPdfSettings = { ...pdfSettings, [key]: value };
     setPdfSettings(updatedPdfSettings);
-    
+
     try {
       const { error } = await supabase.auth.updateUser({
         data: { 
           pdf_settings: updatedPdfSettings
         }
       });
-      
+
       if (error) {
         console.error("Supabase Fehler:", error);
         throw error;
@@ -289,18 +387,18 @@ const Settings = () => {
       toast.error(t("common.error"));
     }
   };
-  
+
   const setPrivacySetting = async (key: string, value: any) => {
     const updatedPrivacySettings = { ...privacySettings, [key]: value };
     setPrivacySettings(updatedPrivacySettings);
-    
+
     try {
       const { error } = await supabase.auth.updateUser({
         data: { 
           privacy_settings: updatedPrivacySettings
         }
       });
-      
+
       if (error) {
         console.error("Supabase Fehler:", error);
         throw error;
@@ -315,36 +413,49 @@ const Settings = () => {
   const handlePasswordReset = async () => {
     try {
       setPasswordResetLoading(true);
+      
+      // Zeige einen Toast mit Ladeanimation an
+      toast.loading(
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {t("settings.security.sendingResetLink") || "E-Mail wird gesendet..."}
+        </div>,
+        { id: "password-reset-toast", duration: 3000 }
+      );
+      
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
         redirectTo: `${window.location.origin}/settings`,
       });
-      
+
       if (error) throw error;
-      
-      toast.success(t("common.success"));
+
+      // Erfolgreiche Rückmeldung mit längerer Anzeigedauer
+      toast.success(
+        t("settings.security.resetLinkSent") || "E-Mail zum Zurücksetzen des Passworts wurde gesendet", 
+        { id: "password-reset-toast", duration: 5000 }
+      );
     } catch (error) {
       console.error(error);
-      toast.error(t("common.error"));
+      toast.error(
+        t("settings.security.resetError") || "Fehler beim Zurücksetzen des Passworts", 
+        { id: "password-reset-toast", duration: 5000 }
+      );
     } finally {
       setPasswordResetLoading(false);
     }
   };
 
   const handleEmailChange = async () => {
+    if (!newEmail || !isValidEmail(newEmail)) return;
     try {
-      if (!newEmail) {
-        toast.error(t("settings.profile.emailError"));
-        return;
-      }
-      
       setEmailChangeLoading(true);
       const { error } = await supabase.auth.updateUser({
         email: newEmail,
       });
-      
+
       if (error) throw error;
-      
-      toast.success(t("common.success"));
+
+      toast.success(t("settings.profile.emailChangeSuccess"));
       setNewEmail("");
     } catch (error) {
       console.error(error);
@@ -353,16 +464,16 @@ const Settings = () => {
       setEmailChangeLoading(false);
     }
   };
-  
+
   const handleDisplayNameChange = async () => {
     try {
       setDisplayNameLoading(true);
-      
+
       // Verwende den debounced Update
       debouncedUpdateUser({ 
         name: displayName 
       });
-      
+
       // Nicht sofort den Erfolg melden, da der Update debounced ist
       // Die Erfolgsmeldung kommt aus der debouncedUpdateUser Funktion
     } catch (error) {
@@ -372,59 +483,116 @@ const Settings = () => {
       setDisplayNameLoading(false);
     }
   };
-  
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
+
       // Prüfe Dateigröße (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         toast.error(t("settings.profile.maxFileSizeError"));
         return;
       }
-      
+
       setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
     }
   };
-  
+
   const handleImageUpload = async () => {
     if (!imageFile) return;
-    
+
     try {
       setImageLoading(true);
       
+      // Validiere Bildgröße und Format
+      if (imageFile.size > 5 * 1024 * 1024) { // 5MB Limit
+        throw new Error("Bild ist zu groß. Maximale Größe: 5MB");
+      }
+      
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(imageFile.type)) {
+        throw new Error("Ungültiges Bildformat. Erlaubt sind: JPG, PNG, GIF, WEBP");
+      }
+
       // Lade Bild in Supabase Storage hoch
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
       
+      // Lösche vorhandenes Profilbild, wenn vorhanden (optional)
+      try {
+        const { data: existingFiles } = await supabase.storage
+          .from('avatars')
+          .list('', { 
+            search: `${user.id}-` // Suche nach Dateien mit Benutzer-ID-Präfix
+          });
+          
+        if (existingFiles && existingFiles.length > 0) {
+          await supabase.storage
+            .from('avatars')
+            .remove(existingFiles.map(file => file.name));
+        }
+      } catch (listError) {
+        console.warn("Konnte vorhandene Dateien nicht auflisten:", listError);
+        // Nicht kritisch, Upload trotzdem fortsetzen
+      }
+
+      // Neues Bild hochladen
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, imageFile);
+        .upload(fileName, imageFile, {
+          cacheControl: '3600',
+          upsert: true // Überschreibe, falls Datei existiert
+        });
+
+      if (uploadError) {
+        console.error("Upload-Fehler:", uploadError);
+        throw new Error(`Fehler beim Hochladen: ${uploadError.message}`);
+      }
       
-      if (uploadError) throw uploadError;
-      
+      if (!uploadData || !uploadData.path) {
+        throw new Error("Keine Daten vom Upload erhalten");
+      }
+
       // Hole öffentliche URL
       const { data: urlData } = await supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
-      
+        
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error("Konnte keine öffentliche URL für das Bild erhalten");
+      }
+
       // Aktualisiere Benutzer-Metadaten
       const { error: updateError } = await supabase.auth.updateUser({
         data: { 
-          avatar_url: urlData.publicUrl 
+          avatar_url: urlData.publicUrl,
+          avatar_updated_at: new Date().toISOString()
         }
       });
+
+      if (updateError) {
+        console.error("Update-Fehler:", updateError);
+        throw new Error(`Fehler beim Aktualisieren des Profils: ${updateError.message}`);
+      }
+
+      // Erfolgreiche Rückmeldung
+      toast.success(t("settings.profile.avatarUpdated") || "Profilbild erfolgreich aktualisiert");
       
-      if (updateError) throw updateError;
-      
-      toast.success(t("common.success"));
+      // Aktualisiere lokalen State
       setImageFile(null);
+      setImagePreview(null);
       
-      // Lade Seite neu, um neues Bild anzuzeigen
+      // Aktualisiere den Benutzer im State durch erneutes Laden
+      // Dies löst den Auth-State-Listener aus, der den User-State aktualisiert
+      const { data: userData } = await supabase.auth.getUser();
+      
+      // Erzwinge einen Reload der Seite, um sicherzustellen, dass alle Komponenten
+      // das neue Profilbild anzeigen
       window.location.reload();
     } catch (error) {
-      console.error(error);
-      toast.error(t("common.error"));
+      console.error("Profilbild-Upload-Fehler:", error);
+      toast.error(error instanceof Error ? error.message : t("common.error"));
     } finally {
       setImageLoading(false);
     }
@@ -500,32 +668,45 @@ const Settings = () => {
   };
 
   const setCookieSetting = async (key: string, value: boolean) => {
-    const updatedCookieSettings = {
-      ...privacySettings.cookieSettings,
-      [key]: value
-    };
-    
-    const updatedPrivacySettings = {
-      ...privacySettings,
-      cookieSettings: updatedCookieSettings
-    };
-    
-    setPrivacySettings(updatedPrivacySettings);
-    
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: { 
-          privacy_settings: updatedPrivacySettings
+      const updatedCookieSettings = {
+        ...privacySettings.cookieSettings,
+        [key]: value
+      };
+      
+      const updatedPrivacySettings = {
+        ...privacySettings,
+        cookieSettings: updatedCookieSettings
+      };
+      
+      setPrivacySettings(updatedPrivacySettings);
+      
+      // Aktualisiere in der Datenbank
+      const { data: userData } = await supabase.auth.getUser();
+      const currentMetadata = userData?.user?.user_metadata || {};
+      await supabase.auth.updateUser({
+        data: {
+          privacy_settings: {
+            ...currentMetadata.privacy_settings,
+            cookieSettings: updatedCookieSettings
+          }
         }
       });
       
-      if (error) {
-        console.error("Supabase Fehler:", error);
-        throw error;
-      }
-      toast.success(t("common.success"));
+      toast.success(
+        <div className="flex flex-col">
+          <span>{t("settings.privacy.cookieUpdateSuccess")}</span>
+          <button 
+            className="text-sm underline mt-1 text-left" 
+            onClick={() => window.location.reload()}
+          >
+            {t("settings.privacy.reloadPage") || "Seite neu laden für vollständige Wirkung"}
+          </button>
+        </div>,
+        { duration: 5000 }
+      );
     } catch (error) {
-      console.error("Fehler beim Speichern der Cookie-Einstellung:", error);
+      console.error(error);
       toast.error(t("common.error"));
     }
   };
@@ -592,6 +773,14 @@ const Settings = () => {
                     <p className="text-xs text-muted-foreground">
                       {t("settings.profile.maxFileSize")}
                     </p>
+                    {imagePreview && (
+                      <div className="mt-2 mb-4">
+                        <p className="text-sm mb-2">Vorschau</p>
+                        <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-primary">
+                          <img src={imagePreview} alt="Vorschau" className="w-full h-full object-cover" />
+                        </div>
+                      </div>
+                    )}
                     {imageFile && (
                       <Button 
                         onClick={handleImageUpload} 
@@ -680,14 +869,67 @@ const Settings = () => {
                   />
                   <Button 
                     onClick={handleEmailChange}
-                    disabled={emailChangeLoading || !newEmail}
+                    disabled={emailChangeLoading || !newEmail || !isValidEmail(newEmail)}
                   >
-                    {emailChangeLoading ? t("common.saving") : t("common.save")}
+                    {emailChangeLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("common.saving")}
+                      </>
+                    ) : t("common.save")}
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {t("settings.profile.emailNote")}
                 </p>
+                {newEmail && !isValidEmail(newEmail) && (
+                  <p className="text-sm text-red-500 mt-1">
+                    {t("settings.profile.invalidEmail") || "Bitte gib eine gültige E-Mail-Adresse ein."}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sicherheit */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Passwort & Sicherheit</CardTitle>
+              <CardDescription>
+                Verwalte dein Passwort und die Sicherheitseinstellungen
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Passwort-Einstellungen</h3>
+                <p className="text-sm text-muted-foreground">
+                  Du erhältst eine E-Mail mit einem Link zum Zurücksetzen deines Passworts.
+                </p>
+                <Button 
+                  onClick={handlePasswordReset}
+                  disabled={passwordResetLoading}
+                  className="mt-2"
+                >
+                  {passwordResetLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sende Link...
+                    </>
+                  ) : (
+                    "Passwort zurücksetzen"
+                  )}
+                </Button>
+              </div>
+
+              <div className="space-y-2 pt-4">
+                <h3 className="text-sm font-medium">Sitzungsinformationen</h3>
+                <div className="rounded-md bg-muted p-4">
+                  <div className="text-sm">
+                    <p><strong>Letzte Anmeldung:</strong> {new Date().toLocaleDateString()}</p>
+                    <p><strong>Browser:</strong> {navigator.userAgent.split("/")[0]}</p>
+                    <p><strong>IP-Adresse:</strong> <span className="text-muted-foreground">Aus Datenschutzgründen ausgeblendet</span></p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -803,27 +1045,7 @@ const Settings = () => {
             </CardContent>
           </Card>
 
-          {/* Passwort-Sicherheit */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Passwort & Sicherheit</CardTitle>
-              <CardDescription>
-                Verwalte dein Passwort und die Sicherheitseinstellungen
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                variant="outline" 
-                onClick={handlePasswordReset}
-                disabled={passwordResetLoading}
-              >
-                {passwordResetLoading ? "E-Mail wird gesendet..." : "Passwort zurücksetzen"}
-              </Button>
-              <p className="text-sm text-muted-foreground mt-2">
-                Du erhältst eine E-Mail mit einem Link zum Zurücksetzen deines Passworts.
-              </p>
-            </CardContent>
-          </Card>
+
           
           {/* Verknüpfte Konten */}
           <Card>
@@ -1070,7 +1292,7 @@ const Settings = () => {
                       <button
                         className={`w-10 h-10 rounded-full ${
                           accentColor === color.name ? "ring-2 ring-offset-2 ring-primary" : ""
-                        } relative flex items-center justify-center`}
+                        } relative flex items-center justify-center transition-all duration-300`}
                         style={{ backgroundColor: color.color }}
                         onClick={() => handleSettingChange("accentColor", color.name)}
                         aria-label={`Akzentfarbe ${color.label}`}
